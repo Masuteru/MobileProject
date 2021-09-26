@@ -21,8 +21,8 @@ export default function App() {
         screenOptions={{
           headerShown: false,
         }}>
-        <Tab.Screen name="Recording" component={RecordScreen} />
-        <Tab.Screen name="Tags" component={TagsScreen} />
+        <Tab.Screen name="Recording">{props => <Recording {...props} extraData={'hi'} />}</Tab.Screen>
+        <Tab.Screen name="Tags" >{props => <Tags {...props} extraData={'hi'} />}</Tab.Screen>
       </Tab.Navigator>
     </NavigationContainer>
   );
