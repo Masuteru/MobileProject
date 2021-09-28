@@ -49,18 +49,43 @@ class Tags extends Component<any, State> {
       <SafeAreaProvider>
         <View
           style={{flex: 1, alignItems: 'stretch', justifyContent: 'center'}}>
-          <Slider value={this.state.currentPositionSec} />
-          <Text>Value: {this.state.currentPositionSec}</Text>
+          <Slider value={this.state.currentPositionSec} maximumValue={3392} onValueChange={value => {this.audioRecorderPlayer.seekToPlayer(value)}}/>
+          <Text>CurrentPositionSec: {this.state.currentPositionSec}</Text>
+          <Text>RecordTime: {this.state.recordTime}</Text>
+          <Text>DurationSec: {this.state.currentDurationSec}</Text>
+          <Text>Playtime: {this.state.playTime}</Text>
+          <Text>Duration: {this.state.duration}</Text>
         </View>
         <Icon
           raised
-          name="heartbeat"
+          name="play"
           type="font-awesome"
           color="#f50"
           onPress={this.onStartPlay}
         />
+        <Icon
+          raised
+          name="pause"
+          type="font-awesome"
+          color="#f50"
+          onPress={this.onPause}
+        />
       </SafeAreaProvider>
     );
+  }
+
+  componentDidMount = () => {
+    this.audioRecorderPlayer.addPlayBackListener((e: PlayBackType) => {
+      this.setState({
+        currentPositionSec: e.currentPosition,
+        currentDurationSec: e.duration,
+        playTime: this.audioRecorderPlayer.mmssss(
+          Math.floor(e.currentPosition),
+        ),
+        duration: this.audioRecorderPlayer.mmssss(Math.floor(e.duration)),
+      });
+      console.log('uhul');
+    });
   }
 
   getConvertedDuration = () => {
@@ -86,19 +111,19 @@ class Tags extends Component<any, State> {
 
     console.log('ue');
 
-    this.audioRecorderPlayer.addPlayBackListener((e: PlayBackType) => {
-      this.setState({
-        currentPositionSec: e.currentPosition,
-        currentDurationSec: e.duration,
-        playTime: this.audioRecorderPlayer.mmssss(
-          Math.floor(e.currentPosition),
-        ),
-        duration: this.audioRecorderPlayer.mmssss(Math.floor(e.duration)),
-      });
-      console.log(this.state.duration)
-      this.getConvertedDuration();
-    });
+    
+  }
 
+  onPause = async () => {
+    this.audioRecorderPlayer.pausePlayer();
+  }
+
+  setPlaybackData = async () => {
+    let file = '/audio';
+    const path = RNFetchBlob.fs.dirs.DownloadDir + file + '.mp4';
+
+     await this.audioRecorderPlayer.startPlayer(path);
+     await this.audioRecorderPlayer.setVolume(1.0);
   }
 }
 
