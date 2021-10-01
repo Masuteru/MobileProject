@@ -1,77 +1,296 @@
-import {Text, View} from 'react-native';
-import React, {Component} from 'react';
-import {SafeAreaProvider} from 'react-native-safe-area-context';
-import {SpeedDial} from 'react-native-elements';
-import {Slider} from 'react-native-elements/dist/slider/Slider';
-import RNFetchBlob from 'rn-fetch-blob';
-import AudioRecorderPlayer, { PlayBackType } from 'react-native-audio-recorder-player';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { Component } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { Chip, Divider, Input, Overlay } from 'react-native-elements';
 import { Icon } from 'react-native-elements/dist/icons/Icon';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 interface State {
-  isLoggingIn: boolean;
-  recordSecs: number;
-  recordTime: string;
-  currentPositionSec: number;
-  currentDurationSec: number;
-  playTime: string;
-  duration: string;
+  visible: boolean;
 }
 
-class Meetings extends Component<any, State> {
-  public audioRecorderPlayer: AudioRecorderPlayer;
+const styles = StyleSheet.create({
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 22,
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  button: {
+    borderRadius: 20,
+    padding: 10,
+    elevation: 2,
+  },
+  buttonOpen: {
+    backgroundColor: '#F194FF',
+  },
+  buttonClose: {
+    backgroundColor: '#2196F3',
+  },
+  textStyle: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  modalText: {
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+});
 
+interface State {
+  name: string;
+  visible: boolean;
+  subVisible: boolean;
+  participants: Array<any>;
+  subjects: Array<any>;
+}
+
+var particpantName = '';
+var subjectName = '';
+
+class Meetings extends Component<any, State> {
   constructor(props: any) {
     super(props);
     this.state = {
-      isLoggingIn: false,
-      recordSecs: 0,
-      recordTime: '00:00:00',
-      currentPositionSec: 0,
-      currentDurationSec: 0,
-      playTime: '00:00:00',
-      duration: '00:00:00',
+      name: '',
+      visible: false,
+      subVisible: false,
+      participants: [],
+      subjects: [],
     };
-    this.audioRecorderPlayer = new AudioRecorderPlayer();
-    this.audioRecorderPlayer.setSubscriptionDuration(0.1); // optional. Default is 0.5
   }
+
   public render() {
     return (
       <SafeAreaProvider>
-        <View
-          style={{flex: 1, alignItems: 'stretch', justifyContent: 'center'}}>
-          
-          <Slider
-            value={this.state.currentPositionSec}
-            
+        <Text style={{fontSize: 20}}>Name:</Text>
+        <Input
+          placeholder="Insert meeting name"
+          onChangeText={name => this.setMeetingName(name)}
+        />
+
+        <Text style={{fontSize: 20}}>Participants:</Text>
+        <View style={{flexDirection: 'row'}}>
+          {this.state.participants.map(participant => (
+            <Chip
+              containerStyle={{alignItems: 'baseline', paddingRight: 10}}
+              title={participant.name}
+              icon={
+                <Icon
+                  size={20}
+                  style={{fontSize: 100, paddingLeft: 5}}
+                  name="close"
+                  type="font-awesome"
+                  color="white"
+                  onPress={() => this.removeParticipant(participant)}
+                />
+              }
+              iconRight
+            />
+          ))}
+          <Overlay
+            animationType="slide"
+            isVisible={this.state.visible}
+            onBackdropPress={this.toggleOverlay}>
+            <View style={{height: 200, width: 300, alignItems: 'center'}}>
+              <Input
+                placeholder="Insert participant name"
+                onChangeText={name => this.setParticipant(name)}
+                leftIcon={
+                  <Icon
+                    name="user"
+                    type="font-awesome"
+                    size={24}
+                    color="black"
+                  />
+                }
+              />
+              <View
+                style={{
+                  flexDirection: 'row',
+                  width: 300,
+                  justifyContent: 'center',
+                }}>
+                <Chip
+                  containerStyle={{width: 80}}
+                  title="CANCEL"
+                  buttonStyle={{
+                    backgroundColor: 'red',
+                  }}
+                  iconRight
+                  onPress={this.toggleOverlay}
+                />
+                <Chip
+                  containerStyle={{width: 80}}
+                  title="ADD"
+                  iconRight
+                  onPress={this.addParticipant}
+                />
+              </View>
+            </View>
+          </Overlay>
+          <Chip
+            containerStyle={{alignItems: 'baseline'}}
+            title="Add new"
+            iconRight
+            onPress={this.toggleOverlay}
           />
-          <Text>Value: {this.state.currentPositionSec}</Text>
         </View>
-        <Icon  raised  name='heartbeat'  type='font-awesome'  color='#f50'  onPress={this.onStartPlay} />
+        <Divider orientation="horizontal" />
+
+        <Text style={{fontSize: 20}}>Subjects:</Text>
+        <View style={{flexDirection: 'row'}}>
+          {this.state.subjects.map(subject => (
+            <Chip
+              containerStyle={{alignItems: 'baseline', paddingRight: 10}}
+              title={subject.name}
+              icon={
+                <Icon
+                  size={20}
+                  style={{fontSize: 100, paddingLeft: 5}}
+                  name="close"
+                  type="font-awesome"
+                  color="white"
+                  onPress={() => this.removeSubject(subject)}
+                />
+              }
+              iconRight
+            />
+          ))}
+          <Overlay
+            animationType="slide"
+            isVisible={this.state.subVisible}
+            onBackdropPress={this.toggleSubjectOverlay}>
+            <View style={{height: 200, width: 300, alignItems: 'center'}}>
+              <Input
+                placeholder="Insert subject name"
+                onChangeText={name => this.setSubject(name)}
+                leftIcon={
+                  <Icon
+                    name="user"
+                    type="font-awesome"
+                    size={24}
+                    color="black"
+                  />
+                }
+              />
+              <View
+                style={{
+                  flexDirection: 'row',
+                  width: 300,
+                  justifyContent: 'center',
+                }}>
+                <Chip
+                  containerStyle={{width: 80}}
+                  title="CANCEL"
+                  buttonStyle={{
+                    backgroundColor: 'red',
+                  }}
+                  iconRight
+                  onPress={this.toggleOverlay}
+                />
+                <Chip
+                  containerStyle={{width: 80}}
+                  title="ADD"
+                  iconRight
+                  onPress={this.addSubject}
+                />
+              </View>
+            </View>
+          </Overlay>
+          <Chip
+            containerStyle={{alignItems: 'baseline'}}
+            title="Add new"
+            iconRight
+            onPress={this.toggleSubjectOverlay}
+          />
+        </View>
+        <Divider orientation="horizontal" />
+        <Chip
+          containerStyle={{alignItems: 'baseline'}}
+          title="Create Meeting"
+          onPress={this.createMeeting}
+        />
       </SafeAreaProvider>
     );
   }
 
-  private async onStartPlay() {
-    let file = '/audio';
-    const path = RNFetchBlob.fs.dirs.DownloadDir + file + '.mp4';
-    // const msg = await this.audioRecorderPlayer.startPlayer(path);
-    // const volume = await this.audioRecorderPlayer.setVolume(1.0);
-    console.log(path)
-
-    await this.audioRecorderPlayer.startPlayer(path);
-    await this.audioRecorderPlayer.setVolume(1.0);
-
-    this.audioRecorderPlayer.addPlayBackListener((e: PlayBackType) => {
-      this.setState({
-        currentPositionSec: e.currentPosition,
-        currentDurationSec: e.duration,
-        playTime: this.audioRecorderPlayer.mmssss(
-          Math.floor(e.currentPosition),
-        ),
-        duration: this.audioRecorderPlayer.mmssss(Math.floor(e.duration)),
-      });
+  toggleOverlay = () => {
+    this.setState({
+      visible: !this.state.visible,
     });
+  };
+
+  toggleSubjectOverlay = () => {
+    this.setState({
+      subVisible: !this.state.subVisible,
+    });
+  };
+
+  setMeetingName = (event: string) => {
+    this.setState({name: event});
+  };
+
+  private setParticipant = (event: string) => {
+    particpantName = event;
+  };
+
+  private removeParticipant = (e: any) => {
+    this.setState({
+      participants: this.state.participants.filter(function (person) {
+        return person !== e;
+      }),
+    });
+  };
+
+  private addParticipant = () => {
+    this.state.participants.push({name: particpantName});
+    this.toggleOverlay();
+  };
+
+  private setSubject = (event: string) => {
+    subjectName = event;
+  };
+
+  private removeSubject = (e: any) => {
+    this.setState({
+      subjects: this.state.subjects.filter(function (subject) {
+        return subject !== e;
+      }),
+    });
+  };
+
+  private addSubject = () => {
+    this.state.subjects.push({name: subjectName});
+    this.toggleSubjectOverlay();
+  };
+
+  private createMeeting = () => {
+    const meeting = {
+      name: this.state.name,
+      participants: this.state.participants,
+      subjects: this.state.subjects
+    }
+    AsyncStorage.setItem(
+      'meetings', JSON.stringify(meeting)
+    )
   }
 }
 
-export default Meetings
+export default Meetings;

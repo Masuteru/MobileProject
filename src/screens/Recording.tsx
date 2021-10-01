@@ -22,84 +22,13 @@ import Slider from '@react-native-community/slider';
 import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
 import RNFetchBlob from 'rn-fetch-blob';
-
-const styles: any = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#455A64',
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  titleTxt: {
-    marginTop: 100,
-    color: 'white',
-    fontSize: 28,
-  },
-  viewRecorder: {
-    marginTop: 40,
-    width: '100%',
-    alignItems: 'center',
-  },
-  recordBtnWrapper: {
-    flexDirection: 'row',
-  },
-  viewPlayer: {
-    marginTop: 60,
-    alignSelf: 'stretch',
-    alignItems: 'center',
-  },
-  viewBarWrapper: {
-    marginTop: 28,
-    marginHorizontal: 28,
-    alignSelf: 'stretch',
-  },
-  viewBar: {
-    backgroundColor: '#ccc',
-    height: 4,
-    alignSelf: 'stretch',
-  },
-  viewBarPlay: {
-    backgroundColor: 'white',
-    height: 4,
-    width: 0,
-  },
-  playStatusTxt: {
-    marginTop: 8,
-    color: '#ccc',
-  },
-  playBtnWrapper: {
-    flexDirection: 'row',
-    marginTop: 40,
-  },
-  btn: {
-    borderColor: 'white',
-    borderWidth: 1,
-  },
-  txt: {
-    color: 'white',
-    fontSize: 14,
-    marginHorizontal: 8,
-    marginVertical: 4,
-  },
-  txtRecordCounter: {
-    marginTop: 32,
-    color: 'white',
-    fontSize: 20,
-    textAlignVertical: 'center',
-    fontWeight: '200',
-    fontFamily: 'Helvetica Neue',
-    letterSpacing: 3,
-  },
-  txtCounter: {
-    marginTop: 12,
-    color: 'white',
-    fontSize: 20,
-    textAlignVertical: 'center',
-    fontWeight: '200',
-    fontFamily: 'Helvetica Neue',
-    letterSpacing: 3,
-  },
-});
+import uuid from 'react-native-uuid';
+import {Icon} from 'react-native-elements/dist/icons/Icon';
+import database from '@react-native-firebase/database';
+import {Chip} from 'react-native-elements/dist/buttons/Chip';
+import {Button} from 'react-native-elements/dist/buttons/Button';
+import MeetingDTO from '../interfaces/MeetingDTO';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface State {
   isLoggingIn: boolean;
@@ -107,14 +36,43 @@ interface State {
   recordTime: string;
   currentPositionSec: number;
   currentDurationSec: number;
-  playTime: string;
+  isRecording: boolean;
+  currentAttendee: string;
+  currentSubject: string;
+  startTime: string;
+
+  meeting: MeetingDTO;
+}
+
+interface AudioData {
+  name: string;
   duration: string;
+  fileId: string;
 }
 
 const screenWidth = Dimensions.get('screen').width;
 
+var isRecording = false;
+
 class Recording extends Component<any, State> {
   private audioRecorderPlayer: AudioRecorderPlayer;
+
+  private audioSet: AudioSet = {
+    AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
+    AudioSourceAndroid: AudioSourceAndroidType.MIC,
+    AVEncoderAudioQualityKeyIOS: AVEncoderAudioQualityIOSType.high,
+    AVNumberOfChannelsKeyIOS: 2,
+    AVFormatIDKeyIOS: AVEncodingOption.aac,
+  };
+
+  private audioData: AudioData = {
+    name: 'teste',
+    duration: '',
+    fileId: '',
+  };
+
+  private fbstorage = storage();
+  private fbDatabase = database();
 
   constructor(props: any) {
     super(props);
@@ -124,8 +82,15 @@ class Recording extends Component<any, State> {
       recordTime: '00:00:00',
       currentPositionSec: 0,
       currentDurationSec: 0,
-      playTime: '00:00:00',
-      duration: '00:00:00',
+      meeting: {
+        name: '',
+        participants: [],
+        subjects: [],
+      },
+      currentAttendee: '',
+      currentSubject: '',
+      isRecording: false,
+      startTime: '',
     };
 
     this.audioRecorderPlayer = new AudioRecorderPlayer();
@@ -133,107 +98,215 @@ class Recording extends Component<any, State> {
   }
 
   public render() {
-    let playWidth =
-      (this.state.currentPositionSec / this.state.currentDurationSec) *
-      (screenWidth - 56);
-
-    if (!playWidth) {
-      playWidth = 0;
-    }
-
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.titleTxt}>Audio Recorder Player</Text>
-        <Text style={styles.txtRecordCounter}>{this.state.recordTime}</Text>
-        <View style={styles.viewRecorder}>
-          <View style={styles.recordBtnWrapper}>
-            <Text style={styles.btn} onPress={this.onStartRecord}>
-              Record
-            </Text>
-            <Text
-              style={[
-                styles.btn,
-                {
-                  marginLeft: 12,
-                },
-              ]}
-              onPress={this.onPauseRecord}>
-              Pause
-            </Text>
-            <Text
-              style={[
-                styles.btn,
-                {
-                  marginLeft: 12,
-                },
-              ]}
-              onPress={this.onResumeRecord}>
-              Resume
-            </Text>
-            <Text
-              style={[styles.btn, {marginLeft: 12}]}
-              onPress={this.onStopRecord}>
-              Stop
-            </Text>
-          </View>
-        </View>
-        <View style={styles.viewPlayer}>
-          {/* <Slider
-            style={{width: 200, height: 40}}
-            minimumValue={0}
-            maximumValue={300}
-            minimumTrackTintColor="#FFFFFF"
-            maximumTrackTintColor="#000000"
-          /> */}
-          <TouchableOpacity
-            style={styles.viewBarWrapper}
-            onPress={this.onStatusPress}>
-            <View style={styles.viewBar}>
-              <View style={[styles.viewBarPlay, {width: playWidth}]} />
+      <SafeAreaView>
+        <View
+          style={{
+            height: '100%',
+            display: 'flex',
+            justifyContent: 'space-between',
+          }}>
+          <View>
+            <View>
+              <Text style={{fontSize: 20}}>
+                Meeting: {this.state.meeting.name}
+              </Text>
+              <Text style={{fontSize: 20}}>Participants:</Text>
+              <View style={{flexDirection: 'row'}}>
+                {this.state.meeting.participants.map(
+                  (participant
+                  ) => (
+                    <Chip
+                      containerStyle={{
+                        alignItems: 'baseline',
+                        paddingRight: 10,
+                      }}
+                      title={participant.name}
+                      iconRight
+                      onPress={() => this.setState({currentAttendee: participant.name})}
+                    />
+                  ),
+                )}
+              </View>
             </View>
-          </TouchableOpacity>
-          <Text style={styles.txtCounter}>
-            {this.state.playTime} / {this.state.duration}
-          </Text>
-          <View style={styles.playBtnWrapper}>
-            <Text style={styles.btn} onPress={this.onStartPlay}>
-              Play
-            </Text>
-            <Text
-              style={[
-                styles.btn,
-                {
-                  marginLeft: 12,
-                },
-              ]}
-              onPress={this.onPausePlay}>
-              Pause
-            </Text>
-            <Text
-              style={[
-                styles.btn,
-                {
-                  marginLeft: 12,
-                },
-              ]}
-              onPress={this.onResumePlay}>
-              Resume
-            </Text>
-            <Text
-              style={[
-                styles.btn,
-                {
-                  marginLeft: 12,
-                },
-              ]}
-              onPress={this.onStopPlay}>
-              Stop
-            </Text>
+            <Text style={{fontSize: 20}}>Subjects:</Text>
+            <View style={{flexDirection: 'row'}}>
+              {this.state.meeting.subjects.map(subject => (
+                <Chip
+                  containerStyle={{alignItems: 'baseline', paddingRight: 10}}
+                  title={subject.name}
+                  iconRight
+                  onPress={() => this.setState({currentSubject: subject.name})}
+                />
+              ))}
+            </View>
+          </View>
+
+          
+          <Text style={{fontSize: 20}}>Current attendee: {this.state.currentAttendee}</Text>
+          <Text style={{fontSize: 20}}>Current subject: {this.state.currentSubject}</Text>
+          <Text style={{fontSize: 20}}>Start time: {this.state.startTime}</Text>
+
+          <View style={{}}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignContent: 'center',
+                justifyContent: 'center',
+                width: '100%',
+              }}>
+              <Text style={{fontSize: 50}}>{this.state.recordTime}</Text>
+            </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: 100,
+                width: '100%',
+              }}>
+              {this.state.isRecording ? (
+                <Button
+                  raised
+                  type="solid"
+                  containerStyle={{
+                    height: 60,
+                    width: 60,
+                    borderRadius: 200,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                  icon={
+                    <Icon
+                      size={40}
+                      style={{fontSize: 100}}
+                      name="pause"
+                      type="font-awesome"
+                      color="red"
+                      onPress={this.onPauseRecord}
+                    />
+                  }
+                />
+              ) : (
+                <Button
+                  raised
+                  type="solid"
+                  containerStyle={{
+                    height: 60,
+                    width: 60,
+                    borderRadius: 200,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                  icon={
+                    <Icon
+                      size={40}
+                      style={{fontSize: 100}}
+                      name="circle"
+                      type="font-awesome"
+                      color="red"
+                      onPress={
+                        this.state.recordSecs > 0
+                          ? this.onResumeRecord
+                          : this.onStartRecord
+                      }
+                    />
+                  }
+                />
+              )}
+              <Button
+                raised
+                type="solid"
+                containerStyle={{
+                  height: 60,
+                  width: 60,
+                  borderRadius: 200,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+                icon={
+                  <Icon
+                    name="stop"
+                    type="font-awesome"
+                    color="black"
+                    onPress={this.onStopRecord}
+                  />
+                }
+              />
+              <Button
+                raised
+                type="solid"
+                containerStyle={{
+                  height: 60,
+                  width: 60,
+                  borderRadius: 200,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+                icon={
+                  <Icon
+                    name="save"
+                    type="font-awesome"
+                    color="#f50"
+                    onPress={this.saveAudioInFirebase}
+                  />
+                }
+              />
+            </View>
           </View>
         </View>
       </SafeAreaView>
     );
   }
+
+  componentDidMount = async () => {
+    this.getData();
+
+    if (Platform.OS === 'android') {
+      try {
+        const grants = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+
+        console.log('write external stroage', grants);
+
+        if (
+          grants['android.permission.WRITE_EXTERNAL_STORAGE'] ===
+            PermissionsAndroid.RESULTS.GRANTED &&
+          grants['android.permission.READ_EXTERNAL_STORAGE'] ===
+            PermissionsAndroid.RESULTS.GRANTED &&
+          grants['android.permission.RECORD_AUDIO'] ===
+            PermissionsAndroid.RESULTS.GRANTED
+        ) {
+          console.log('permissions granted');
+        } else {
+          console.log('All required permissions not granted');
+          return;
+        }
+      } catch (err) {
+        console.warn(err);
+        return;
+      }
+    }
+  };
+
+  getData = async () => {
+    try {
+      const jsonValue = await AsyncStorage.getItem('meetings');
+      if (jsonValue) {
+        this.setState({
+          meeting: JSON.parse(jsonValue),
+        });
+      }
+    } catch (e) {}
+  };
 
   private onStatusPress = (e: any) => {
     const touchX = e.nativeEvent.locationX;
@@ -257,58 +330,28 @@ class Recording extends Component<any, State> {
   };
 
   private onStartRecord = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const grants = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        ]);
+    // const audioSet: AudioSet = {
+    //   AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
+    //   AudioSourceAndroid: AudioSourceAndroidType.MIC,
+    //   AVEncoderAudioQualityKeyIOS: AVEncoderAudioQualityIOSType.high,
+    //   AVNumberOfChannelsKeyIOS: 2,
+    //   AVFormatIDKeyIOS: AVEncodingOption.aac,
+    // };
 
-        console.log('write external stroage', grants);
-
-        if (
-          grants['android.permission.WRITE_EXTERNAL_STORAGE'] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
-          grants['android.permission.READ_EXTERNAL_STORAGE'] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
-          grants['android.permission.RECORD_AUDIO'] ===
-            PermissionsAndroid.RESULTS.GRANTED
-        ) {
-          console.log('permissions granted');
-        } else {
-          console.log('All required permissions not granted');
-          return;
-        }
-      } catch (err) {
-        console.warn(err);
-        return;
-      }
-    }
-
-    const audioSet: AudioSet = {
-      AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
-      AudioSourceAndroid: AudioSourceAndroidType.MIC,
-      AVEncoderAudioQualityKeyIOS: AVEncoderAudioQualityIOSType.high,
-      AVNumberOfChannelsKeyIOS: 2,
-      AVFormatIDKeyIOS: AVEncodingOption.aac,
-    };
-
-    console.log('audioSet', audioSet);
+    
 
     let dirs = RNFetchBlob.fs.dirs;
-    const path = dirs.DocumentDir + '/audio.mp4';
+    const id = uuid.v4();
+    const path = dirs.DocumentDir + '/' + id.toString() + '.mp4';
 
-    console.log(path)
+    this.audioData.fileId = id.toString();
 
-    //? Custom path
-    const uri = await this.audioRecorderPlayer.startRecorder(path, audioSet);
+    const uri = await this.audioRecorderPlayer.startRecorder(
+      path,
+      this.audioSet,
+    );
 
-    //? Default path
-    // const uri = await this.audioRecorderPlayer.startRecorder(
-    //   undefined,
-    //   audioSet,
-    // );
+    this.setState({isRecording: true, startTime: this.state.recordTime});
 
     this.audioRecorderPlayer.addRecordBackListener((e: RecordBackType) => {
       console.log('record-back', e);
@@ -319,10 +362,13 @@ class Recording extends Component<any, State> {
         ),
       });
     });
+
+    
     console.log(`uri: ${uri}`);
   };
 
   private onPauseRecord = async () => {
+    this.setState({isRecording: false});
     try {
       await this.audioRecorderPlayer.pauseRecorder();
     } catch (err) {
@@ -332,132 +378,32 @@ class Recording extends Component<any, State> {
 
   private onResumeRecord = async () => {
     await this.audioRecorderPlayer.resumeRecorder();
+    this.setState({startTime: this.state.recordTime, isRecording: true})
   };
 
   private onStopRecord = async () => {
     const result = await this.audioRecorderPlayer.stopRecorder();
     this.audioRecorderPlayer.removeRecordBackListener();
-    this.setState({
-      recordSecs: 0,
-    });
     console.log(result);
   };
 
-  private onStartPlay = async () => {
-    console.log('onStartPlay');
-
-    if (Platform.OS === 'android') {
-      try {
-        const grants = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        ]);
-
-        console.log('write external stroage', grants);
-
-        if (
-          grants['android.permission.WRITE_EXTERNAL_STORAGE'] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
-          grants['android.permission.READ_EXTERNAL_STORAGE'] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
-          grants['android.permission.RECORD_AUDIO'] ===
-            PermissionsAndroid.RESULTS.GRANTED
-        ) {
-          console.log('permissions granted');
-        } else {
-          console.log('All required permissions not granted');
-          return;
-        }
-      } catch (err) {
-        console.warn(err);
-        return;
-      }
-    }
-
-    //? Custom path
-    // const msg = await this.audioRecorderPlayer.startPlayer(this.path);
-
-    console.log(RNFetchBlob.fs.dirs.DownloadDir + '/audio.mp4')
-
-    const path = RNFetchBlob.fs.dirs.DownloadDir + '/audio.mp4';
-
-    //? Default path
-    const msg = await this.audioRecorderPlayer.startPlayer(path);
-    const volume = await this.audioRecorderPlayer.setVolume(1.0);
-    console.log(`file: ${msg}`, `volume: ${volume}`);
-
-    // const uri = await this.audioRecorderPlayer.startRecorder(path, audioSet);
-
-    this.audioRecorderPlayer.addPlayBackListener((e: PlayBackType) => {
-      this.setState({
-        currentPositionSec: e.currentPosition,
-        currentDurationSec: e.duration,
-        playTime: this.audioRecorderPlayer.mmssss(
-          Math.floor(e.currentPosition),
-        ),
-        duration: this.audioRecorderPlayer.mmssss(Math.floor(e.duration)),
-      });
-    });
-  };
-
-  private onPausePlay = async () => {
-    await this.audioRecorderPlayer.pausePlayer();
-  };
-
-  private onResumePlay = async () => {
-    await this.audioRecorderPlayer.resumePlayer();
-
-    storage()
-      .ref('tryingto')
-      .getDownloadURL()
-      .then(result => {
-        console.log(result);
-
-        const {config, fs} = RNFetchBlob;
-        let PictureDir = fs.dirs.DownloadDir + '/audio.mp4'; // this is the pictures directory. You can check the available directories in the wiki.
-        let options = {
-          fileCache: true,
-          addAndroidDownloads: {
-            useDownloadManager: true, // setting it to true will use the device's native download manager and will be shown in the notification bar.
-            notification: false,
-            path: PictureDir, // this is the path where your downloaded file will live in
-            description: 'Downloading image.',
-          },
-        };
-
-        console.log('lets')
-        
-        config(options)
-          .fetch('GET', result)
-          .then(res => {
-            console.log(res);
-          })
-          .catch(error => {
-            console.log(error);
-          });
-      });
-  };
-
-  private onStopPlay = async () => {
-    console.log('onStopPlay');
-    // this.audioRecorderPlayer.stopPlayer();
-    // this.audioRecorderPlayer.removePlayBackListener();
-
+  private saveAudioInFirebase = async () => {
     let dirs = RNFetchBlob.fs.dirs;
-    const path = dirs.DocumentDir + '/audio.mp4';
+    const path = dirs.DocumentDir + '/' + this.audioData.fileId + '.mp4';
 
-    var fbstorage = storage();
+    const newReference = database().ref('/audioData').push();
 
-    fbstorage
-      .ref('tryingto')
-      .putFile(path)
-      .then(result => {
-        console.log('foi!', result);
-      })
-      .catch(error => {
-        console.log('erro', error);
-      });
+    newReference.set(this.audioData).then(() => {
+      this.fbstorage
+        .ref(this.audioData.fileId)
+        .putFile(path)
+        .then(result => {
+          console.log('foi!', result);
+        })
+        .catch(error => {
+          console.log('erro', error);
+        });
+    });
   };
 }
 
