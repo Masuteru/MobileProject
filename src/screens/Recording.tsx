@@ -16,6 +16,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
 } from 'react-native';
 import React, {Component} from 'react';
 import Slider from '@react-native-community/slider';
@@ -29,6 +30,15 @@ import {Chip} from 'react-native-elements/dist/buttons/Chip';
 import {Button} from 'react-native-elements/dist/buttons/Button';
 import MeetingDTO from '../interfaces/MeetingDTO';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  BottomSheet,
+  Card,
+  Input,
+  ListItem,
+  Overlay,
+} from 'react-native-elements';
+import ChipIterator from '../components/AddTagsModal';
+import AddTagsModal from '../components/AddTagsModal';
 
 interface State {
   isLoggingIn: boolean;
@@ -40,8 +50,29 @@ interface State {
   currentAttendee: string;
   currentSubject: string;
   startTime: string;
+  visible: boolean;
+
+  tagMoment: string;
+
+  points: Point[];
+
+  currentPoint: {
+    attendee: string;
+    subject: string;
+    startTime: string;
+    endTime: string;
+    tags: [
+      {
+        tagsName: string[];
+        tagTime: string;
+      },
+    ];
+  };
 
   meeting: MeetingDTO;
+  addAttVisible: boolean;
+  addSubVisible: boolean;
+  isEditing: boolean;
 }
 
 interface AudioData {
@@ -50,12 +81,26 @@ interface AudioData {
   fileId: string;
 }
 
+interface Point {
+  attendee: string;
+  subject: string;
+  startTime: string;
+  endTime: string;
+  tags: [
+    {
+      tagsName: string[];
+      tagTime: string;
+    },
+  ];
+}
+
 const screenWidth = Dimensions.get('screen').width;
 
 var isRecording = false;
 
 class Recording extends Component<any, State> {
   private audioRecorderPlayer: AudioRecorderPlayer;
+  private points: Point[];
 
   private audioSet: AudioSet = {
     AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
@@ -76,6 +121,9 @@ class Recording extends Component<any, State> {
 
   constructor(props: any) {
     super(props);
+
+    this.points = [];
+
     this.state = {
       isLoggingIn: false,
       recordSecs: 0,
@@ -90,7 +138,25 @@ class Recording extends Component<any, State> {
       currentAttendee: '',
       currentSubject: '',
       isRecording: false,
-      startTime: '',
+      startTime: '00:00:00',
+      visible: false,
+      tagMoment: '00:00:00',
+      points: this.points,
+      currentPoint: {
+        attendee: '',
+        subject: '',
+        startTime: '',
+        endTime: '',
+        tags: [
+          {
+            tagsName: [],
+            tagTime: '',
+          },
+        ],
+      },
+      addAttVisible: false,
+      addSubVisible: false,
+      isEditing: true,
     };
 
     this.audioRecorderPlayer = new AudioRecorderPlayer();
@@ -106,46 +172,149 @@ class Recording extends Component<any, State> {
             display: 'flex',
             justifyContent: 'space-between',
           }}>
-          <View>
-            <View>
-              <Text style={{fontSize: 20}}>
-                Meeting: {this.state.meeting.name}
-              </Text>
-              <Text style={{fontSize: 20}}>Participants:</Text>
-              <View style={{flexDirection: 'row'}}>
-                {this.state.meeting.participants.map(
-                  (participant
-                  ) => (
-                    <Chip
-                      containerStyle={{
-                        alignItems: 'baseline',
-                        paddingRight: 10,
-                      }}
-                      title={participant.name}
-                      iconRight
-                      onPress={() => this.setState({currentAttendee: participant.name})}
-                    />
-                  ),
-                )}
-              </View>
-            </View>
-            <Text style={{fontSize: 20}}>Subjects:</Text>
-            <View style={{flexDirection: 'row'}}>
-              {this.state.meeting.subjects.map(subject => (
-                <Chip
-                  containerStyle={{alignItems: 'baseline', paddingRight: 10}}
-                  title={subject.name}
-                  iconRight
-                  onPress={() => this.setState({currentSubject: subject.name})}
-                />
-              ))}
-            </View>
-          </View>
+          <Text style={{fontSize: 20}}>Meeting: {this.state.meeting.name}</Text>
 
-          
-          <Text style={{fontSize: 20}}>Current attendee: {this.state.currentAttendee}</Text>
-          <Text style={{fontSize: 20}}>Current subject: {this.state.currentSubject}</Text>
-          <Text style={{fontSize: 20}}>Start time: {this.state.startTime}</Text>
+          <ScrollView style={{height: 200, backgroundColor: 'purple'}}>
+            {this.state.points.map(point => (
+              <Card>
+                <Text style={{fontSize: 15}}>
+                  Current attendee: {point.attendee}
+                </Text>
+                <Text style={{fontSize: 15}}>
+                  Current subject: {point.subject}
+                </Text>
+                <Text style={{fontSize: 15}}>
+                  Start time: {point.startTime}
+                </Text>
+                <Text style={{fontSize: 15}}>End time: {point.endTime}</Text>
+              </Card>
+            ))}
+          </ScrollView>
+
+          {!this.state.isEditing ? (
+            <Card>
+              <Text style={{fontSize: 15}}>
+                Attendee: {this.state.currentAttendee}
+              </Text>
+              <Text style={{fontSize: 15}}>
+                Subject: {this.state.currentSubject}
+              </Text>
+              <Text style={{fontSize: 15}}>
+                Start time: {this.state.startTime}
+              </Text>
+              <View style={{flexDirection: 'row'}}>
+                <Chip
+                  containerStyle={{
+                    alignItems: 'baseline',
+                    paddingRight: 10,
+                    height: 40,
+                  }}
+                  titleStyle={{fontSize: 13}}
+                  title="Add tag"
+                  iconRight
+                  onPress={this.toggleOverlay}
+                />
+                <Chip
+                  containerStyle={{
+                    alignItems: 'baseline',
+                    paddingRight: 10,
+                    height: 40,
+                  }}
+                  buttonStyle={{
+                    backgroundColor: 'red',
+                  }}
+                  titleStyle={{fontSize: 13}}
+                  title="Finish subject"
+                  iconRight
+                  onPress={this.finishSubject}
+                />
+              </View>
+            </Card>
+          ) : (
+            <Card>
+              <Text style={{fontSize: 15}}>
+                Selected attendee:
+                {this.state.currentAttendee ? (
+                  <View style={{flexDirection: 'row'}}>
+                    <Text>{this.state.currentAttendee}</Text>
+                    <Icon
+                      size={20}
+                      style={{fontSize: 100}}
+                      name="edit"
+                      type="font-awesome"
+                      color="red"
+                      onPress={this.toggleAddAttendant}
+                    />
+                  </View>
+                ) : (
+                  <Chip
+                    containerStyle={{
+                      alignItems: 'baseline',
+                      paddingRight: 10,
+                      height: 40,
+                    }}
+                    buttonStyle={{
+                      backgroundColor: 'red',
+                    }}
+                    titleStyle={{fontSize: 12}}
+                    title="Select..."
+                    iconRight
+                    onPress={this.toggleAddAttendant}
+                  />
+                )}
+              </Text>
+              <Text style={{fontSize: 15}}>
+                Selected subject:{' '}
+                {this.state.currentSubject ? (
+                  <View style={{flexDirection: 'row'}}>
+                    <Text>{this.state.currentSubject}</Text>
+                    <Icon
+                      size={20}
+                      style={{fontSize: 100}}
+                      name="edit"
+                      type="font-awesome"
+                      color="red"
+                      onPress={this.toggleAddSubject}
+                    />
+                  </View>
+                ) : (
+                  <Chip
+                    containerStyle={{
+                      alignItems: 'baseline',
+                      paddingRight: 10,
+                      height: 40,
+                    }}
+                    buttonStyle={{
+                      backgroundColor: 'red',
+                    }}
+                    titleStyle={{fontSize: 12}}
+                    title="Select..."
+                    iconRight
+                    onPress={this.toggleAddSubject}
+                  />
+                )}
+              </Text>
+              <Text style={{fontSize: 15}}>
+                Start time: {this.state.startTime}
+              </Text>
+              <View style={{flexDirection: 'row'}}>
+                <Chip
+                  containerStyle={{
+                    alignItems: 'baseline',
+                    paddingRight: 10,
+                    height: 40,
+                  }}
+                  buttonStyle={{
+                    backgroundColor: 'green',
+                  }}
+                  titleStyle={{fontSize: 13}}
+                  title="Set"
+                  iconRight
+                  onPress={() => this.setState({isEditing: false})}
+                />
+              </View>
+            </Card>
+          )}
 
           <View style={{}}>
             <View
@@ -259,6 +428,59 @@ class Recording extends Component<any, State> {
               />
             </View>
           </View>
+
+          <Overlay
+            animationType="slide"
+            isVisible={this.state.visible}
+            onBackdropPress={this.toggleOverlay}>
+            <AddTagsModal
+              participants={this.state.meeting.participants}
+              subjects={this.state.meeting.subjects}
+              tagMoment={this.state.tagMoment}
+              finishAdding={this.addTagsToPoint}></AddTagsModal>
+          </Overlay>
+
+          <BottomSheet
+            isVisible={this.state.addAttVisible}
+            containerStyle={{backgroundColor: 'rgba(0.5, 0.25, 0, 0.2)'}}>
+            {this.state.meeting.participants.map((l, i) => (
+              <ListItem key={i} onPress={() => this.addAttendee(l.name)}>
+                <ListItem.Content>
+                  <ListItem.Title>{l.name}</ListItem.Title>
+                </ListItem.Content>
+              </ListItem>
+            ))}
+            <ListItem
+              containerStyle={{backgroundColor: 'red'}}
+              onPress={() => this.setState({addAttVisible: false})}>
+              <ListItem.Content>
+                <ListItem.Title style={{color: 'white'}}>
+                  {'Cancel'}
+                </ListItem.Title>
+              </ListItem.Content>
+            </ListItem>
+          </BottomSheet>
+
+          <BottomSheet
+            isVisible={this.state.addSubVisible}
+            containerStyle={{backgroundColor: 'rgba(0.5, 0.25, 0, 0.2)'}}>
+            {this.state.meeting.subjects.map((l, i) => (
+              <ListItem key={i} onPress={() => this.addSubject(l.name)}>
+                <ListItem.Content>
+                  <ListItem.Title>{l.name}</ListItem.Title>
+                </ListItem.Content>
+              </ListItem>
+            ))}
+            <ListItem
+              containerStyle={{backgroundColor: 'red'}}
+              onPress={() => this.setState({addSubVisible: false})}>
+              <ListItem.Content>
+                <ListItem.Title style={{color: 'white'}}>
+                  {'Cancel'}
+                </ListItem.Title>
+              </ListItem.Content>
+            </ListItem>
+          </BottomSheet>
         </View>
       </SafeAreaView>
     );
@@ -275,8 +497,6 @@ class Recording extends Component<any, State> {
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         ]);
 
-        console.log('write external stroage', grants);
-
         if (
           grants['android.permission.WRITE_EXTERNAL_STORAGE'] ===
             PermissionsAndroid.RESULTS.GRANTED &&
@@ -285,7 +505,6 @@ class Recording extends Component<any, State> {
           grants['android.permission.RECORD_AUDIO'] ===
             PermissionsAndroid.RESULTS.GRANTED
         ) {
-          console.log('permissions granted');
         } else {
           console.log('All required permissions not granted');
           return;
@@ -308,26 +527,34 @@ class Recording extends Component<any, State> {
     } catch (e) {}
   };
 
-  private onStatusPress = (e: any) => {
-    const touchX = e.nativeEvent.locationX;
-    console.log(`touchX: ${touchX}`);
-    const playWidth =
-      (this.state.currentPositionSec / this.state.currentDurationSec) *
-      (screenWidth - 56);
-    console.log(`currentPlayWidth: ${playWidth}`);
-
-    const currentPosition = Math.round(this.state.currentPositionSec);
-
-    if (playWidth && playWidth < touchX) {
-      const addSecs = Math.round(currentPosition + 1000);
-      this.audioRecorderPlayer.seekToPlayer(addSecs);
-      console.log(`addSecs: ${addSecs}`);
-    } else {
-      const subSecs = Math.round(currentPosition - 1000);
-      this.audioRecorderPlayer.seekToPlayer(subSecs);
-      console.log(`subSecs: ${subSecs}`);
-    }
+  toggleAddAttendant = () => {
+    this.setState({
+      addAttVisible: !this.state.addAttVisible,
+    });
   };
+
+  toggleAddSubject = () => {
+    this.setState({
+      addSubVisible: !this.state.addSubVisible,
+    });
+  };
+
+  toggleOverlay = () => {
+    this.setState({
+      visible: !this.state.visible,
+      tagMoment: this.state.recordTime,
+    });
+  };
+
+  addTagsToPoint = (data: Array<string>) => {
+    this.state.currentPoint.tags.push({
+      tagsName: data,
+      tagTime: this.state.tagMoment,
+    });
+    this.toggleOverlay();
+  };
+
+  addTag = () => {};
 
   private onStartRecord = async () => {
     // const audioSet: AudioSet = {
@@ -337,8 +564,6 @@ class Recording extends Component<any, State> {
     //   AVNumberOfChannelsKeyIOS: 2,
     //   AVFormatIDKeyIOS: AVEncodingOption.aac,
     // };
-
-    
 
     let dirs = RNFetchBlob.fs.dirs;
     const id = uuid.v4();
@@ -351,10 +576,7 @@ class Recording extends Component<any, State> {
       this.audioSet,
     );
 
-    this.setState({isRecording: true, startTime: this.state.recordTime});
-
     this.audioRecorderPlayer.addRecordBackListener((e: RecordBackType) => {
-      console.log('record-back', e);
       this.setState({
         recordSecs: e.currentPosition,
         recordTime: this.audioRecorderPlayer.mmssss(
@@ -363,8 +585,7 @@ class Recording extends Component<any, State> {
       });
     });
 
-    
-    console.log(`uri: ${uri}`);
+    this.setState({isRecording: true, startTime: this.state.recordTime});
   };
 
   private onPauseRecord = async () => {
@@ -378,13 +599,12 @@ class Recording extends Component<any, State> {
 
   private onResumeRecord = async () => {
     await this.audioRecorderPlayer.resumeRecorder();
-    this.setState({startTime: this.state.recordTime, isRecording: true})
+    this.setState({startTime: this.state.recordTime, isRecording: true});
   };
 
   private onStopRecord = async () => {
     const result = await this.audioRecorderPlayer.stopRecorder();
     this.audioRecorderPlayer.removeRecordBackListener();
-    console.log(result);
   };
 
   private saveAudioInFirebase = async () => {
@@ -404,6 +624,49 @@ class Recording extends Component<any, State> {
           console.log('erro', error);
         });
     });
+  };
+
+  private finishSubject = () => {
+    let currentPoint = this.state.currentPoint;
+    currentPoint.startTime = this.state.startTime;
+    currentPoint.endTime = this.state.recordTime;
+    currentPoint.attendee = this.state.currentAttendee;
+    currentPoint.subject = this.state.currentSubject;
+
+    let points = this.state.points;
+
+    console.log('current', currentPoint)
+
+    points.push(currentPoint);
+    this.setState({points});
+    this.clearCurrentPoint();
+    console.log(this.state.points);
+  };
+
+  private clearCurrentPoint = () => {
+    this.setState({
+      currentPoint: {
+        attendee: '',
+        subject: '',
+        startTime: '',
+        endTime: '',
+        tags: [
+          {
+            tagsName: [],
+            tagTime: '',
+          },
+        ],
+      },
+      isEditing: true,
+    });
+  };
+
+  private addAttendee = (name: string) => {
+    this.setState({currentAttendee: name, addAttVisible: false});
+  };
+
+  private addSubject = (name: string) => {
+    this.setState({currentSubject: name, addSubVisible: false});
   };
 }
 
