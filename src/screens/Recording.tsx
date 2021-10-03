@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import React, {Component} from 'react';
 import Slider from '@react-native-community/slider';
-import firestore from '@react-native-firebase/firestore';
+// import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
 import RNFetchBlob from 'rn-fetch-blob';
 import uuid from 'react-native-uuid';
@@ -39,6 +39,7 @@ import {
 } from 'react-native-elements';
 import ChipIterator from '../components/AddTagsModal';
 import AddTagsModal from '../components/AddTagsModal';
+import RNHTMLtoPDF from 'react-native-html-to-pdf'
 
 interface State {
   isLoggingIn: boolean;
@@ -117,7 +118,7 @@ class Recording extends Component<any, State> {
   };
 
   private fbstorage = storage();
-  private fbDatabase = database();
+  // private fbDatabase = database();
 
   constructor(props: any) {
     super(props);
@@ -422,9 +423,10 @@ class Recording extends Component<any, State> {
                     name="save"
                     type="font-awesome"
                     color="#f50"
-                    onPress={this.saveAudioInFirebase}
+                    onPress={this.createPDF}
                   />
                 }
+                onPress={this.createPDF}
               />
             </View>
           </View>
@@ -611,19 +613,19 @@ class Recording extends Component<any, State> {
     let dirs = RNFetchBlob.fs.dirs;
     const path = dirs.DocumentDir + '/' + this.audioData.fileId + '.mp4';
 
-    const newReference = database().ref('/audioData').push();
+    // const newReference = database().ref('/audioData').push();
 
-    newReference.set(this.audioData).then(() => {
-      this.fbstorage
-        .ref(this.audioData.fileId)
-        .putFile(path)
-        .then(result => {
-          console.log('foi!', result);
-        })
-        .catch(error => {
-          console.log('erro', error);
-        });
-    });
+    // newReference.set(this.audioData).then(() => {
+    //   this.fbstorage
+    //     .ref(this.audioData.fileId)
+    //     .putFile(path)
+    //     .then(result => {
+    //       console.log('foi!', result);
+    //     })
+    //     .catch(error => {
+    //       console.log('erro', error);
+    //     });
+    // });
   };
 
   private finishSubject = () => {
@@ -668,6 +670,31 @@ class Recording extends Component<any, State> {
   private addSubject = (name: string) => {
     this.setState({currentSubject: name, addSubVisible: false});
   };
+
+  private createPDF = async () => {
+    let options = {
+      html: this.createHtml(),
+      fileName: 'test',
+      directory: RNFetchBlob.fs.dirs.DownloadDir,
+    };
+
+    console.log('si');
+
+    let file = await RNHTMLtoPDF.convert(options)
+    console.log(file.filePath);
+    // alert(file.filePath);
+  }
+
+  private createHtml = () => {
+    const { meeting, points } = this.state;
+    const htmlReport = '<h1>Meeting: ' + meeting.name + '</h1> <h2>Participants: ' + meeting.participants.map(participant => {
+      return participant.name
+    }) + 
+    '</h2> <p>--------------------------------------------------------</p>' + points.map(point => {
+      return '<p>Attendee: ' + point.attendee + '</p> <p>Subject: ' + point.subject + '</p> <p>Attendee: ' + point.attendee + '</p>'
+    })
+    return htmlReport
+  }
 }
 
 export default Recording;
