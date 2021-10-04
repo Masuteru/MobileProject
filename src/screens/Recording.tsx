@@ -1,45 +1,34 @@
-import AudioRecorderPlayer, {
-  AVEncoderAudioQualityIOSType,
-  AVEncodingOption,
-  AudioEncoderAndroidType,
-  AudioSet,
-  AudioSourceAndroidType,
-  PlayBackType,
-  RecordBackType,
-} from 'react-native-audio-recorder-player';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+// import firestore from '@react-native-firebase/firestore';
+import storage from '@react-native-firebase/storage';
+import React, {Component} from 'react';
 import {
   Dimensions,
   PermissionsAndroid,
   Platform,
   SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
   ScrollView,
+  Text,
+  View,
 } from 'react-native';
-import React, {Component} from 'react';
-import Slider from '@react-native-community/slider';
-// import firestore from '@react-native-firebase/firestore';
-import storage from '@react-native-firebase/storage';
-import RNFetchBlob from 'rn-fetch-blob';
-import uuid from 'react-native-uuid';
-import {Icon} from 'react-native-elements/dist/icons/Icon';
-import database from '@react-native-firebase/database';
-import {Chip} from 'react-native-elements/dist/buttons/Chip';
+import AudioRecorderPlayer, {
+  AudioEncoderAndroidType,
+  AudioSet,
+  AudioSourceAndroidType,
+  AVEncoderAudioQualityIOSType,
+  AVEncodingOption,
+  RecordBackType,
+} from 'react-native-audio-recorder-player';
+import {BottomSheet, Card, ListItem, Overlay} from 'react-native-elements';
 import {Button} from 'react-native-elements/dist/buttons/Button';
-import MeetingDTO from '../interfaces/MeetingDTO';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  BottomSheet,
-  Card,
-  Input,
-  ListItem,
-  Overlay,
-} from 'react-native-elements';
-import ChipIterator from '../components/AddTagsModal';
+import {Chip} from 'react-native-elements/dist/buttons/Chip';
+import {Icon} from 'react-native-elements/dist/icons/Icon';
+import RNHTMLtoPDF from 'react-native-html-to-pdf';
+import uuid from 'react-native-uuid';
+import RNFetchBlob from 'rn-fetch-blob';
+import AddCommentModal from '../components/AddCommentModal';
 import AddTagsModal from '../components/AddTagsModal';
-import RNHTMLtoPDF from 'react-native-html-to-pdf'
+import MeetingDTO from '../interfaces/MeetingDTO';
 
 interface State {
   isLoggingIn: boolean;
@@ -72,6 +61,7 @@ interface State {
 
   meeting: MeetingDTO;
   addAttVisible: boolean;
+  addCommentVisible: boolean;
   addSubVisible: boolean;
   isEditing: boolean;
 }
@@ -158,6 +148,7 @@ class Recording extends Component<any, State> {
       addAttVisible: false,
       addSubVisible: false,
       isEditing: true,
+      addCommentVisible: false,
     };
 
     this.audioRecorderPlayer = new AudioRecorderPlayer();
@@ -172,10 +163,11 @@ class Recording extends Component<any, State> {
             height: '100%',
             display: 'flex',
             justifyContent: 'space-between',
+            alignItems: 'center'
           }}>
-          <Text style={{fontSize: 20}}>Meeting: {this.state.meeting.name}</Text>
+          <Text style={{fontSize: 25, paddingBottom: 15, paddingTop: 15}}>Meeting: {this.state.meeting.name}</Text>
 
-          <ScrollView style={{height: 200, backgroundColor: 'purple'}}>
+          <ScrollView style={{height: 200, width: '100%', backgroundColor: '#FBF8EF'}}>
             {this.state.points.map(point => (
               <Card>
                 <Text style={{fontSize: 15}}>
@@ -193,17 +185,17 @@ class Recording extends Component<any, State> {
           </ScrollView>
 
           {!this.state.isEditing ? (
-            <Card>
-              <Text style={{fontSize: 15}}>
+            <Card containerStyle={{width: '90%'}}>
+              <Text style={{fontSize: 17, paddingBottom: 15}}>
                 Attendee: {this.state.currentAttendee}
               </Text>
-              <Text style={{fontSize: 15}}>
+              <Text style={{fontSize: 17, paddingBottom: 15}}>
                 Subject: {this.state.currentSubject}
               </Text>
-              <Text style={{fontSize: 15}}>
+              <Text style={{fontSize: 17, paddingBottom: 15}}>
                 Start time: {this.state.startTime}
               </Text>
-              <View style={{flexDirection: 'row'}}>
+              <View style={{flexDirection: 'row', justifyContent: 'flex-end'}}>
                 <Chip
                   containerStyle={{
                     alignItems: 'baseline',
@@ -211,6 +203,9 @@ class Recording extends Component<any, State> {
                     height: 40,
                   }}
                   titleStyle={{fontSize: 13}}
+                  buttonStyle={{
+                    backgroundColor: '#0A9396',
+                  }}
                   title="Add tag"
                   iconRight
                   onPress={this.toggleOverlay}
@@ -221,8 +216,22 @@ class Recording extends Component<any, State> {
                     paddingRight: 10,
                     height: 40,
                   }}
+                  titleStyle={{fontSize: 13}}
                   buttonStyle={{
-                    backgroundColor: 'red',
+                    backgroundColor: '#0A9396',
+                  }}
+                  title="Add comment"
+                  iconRight
+                  onPress={this.toggleCommentOverlay}
+                />
+                <Chip
+                  containerStyle={{
+                    alignItems: 'baseline',
+                    paddingRight: 10,
+                    height: 40,
+                  }}
+                  buttonStyle={{
+                    backgroundColor: '#9B2226',
                   }}
                   titleStyle={{fontSize: 13}}
                   title="Finish subject"
@@ -232,18 +241,26 @@ class Recording extends Component<any, State> {
               </View>
             </Card>
           ) : (
-            <Card>
-              <Text style={{fontSize: 15}}>
-                Selected attendee:
+            <Card containerStyle={{width: '90%'}}>
+              <View
+                style={{
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  paddingBottom: 15,
+                  height: 50,
+                }}>
+                <Text style={{fontSize: 15}}>Selected attendee: </Text>
                 {this.state.currentAttendee ? (
-                  <View style={{flexDirection: 'row'}}>
-                    <Text>{this.state.currentAttendee}</Text>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={{fontSize: 17, paddingRight: 10}}>
+                      {this.state.currentAttendee}
+                    </Text>
                     <Icon
-                      size={20}
+                      size={25}
                       style={{fontSize: 100}}
                       name="edit"
-                      type="font-awesome"
-                      color="red"
+                      type="evilicons"
+                      color="#94D2BD"
                       onPress={this.toggleAddAttendant}
                     />
                   </View>
@@ -251,11 +268,11 @@ class Recording extends Component<any, State> {
                   <Chip
                     containerStyle={{
                       alignItems: 'baseline',
-                      paddingRight: 10,
-                      height: 40,
+                      paddingLeft: 5,
                     }}
                     buttonStyle={{
-                      backgroundColor: 'red',
+                      backgroundColor: '#94D2BD',
+                      width: 80,
                     }}
                     titleStyle={{fontSize: 12}}
                     title="Select..."
@@ -263,18 +280,26 @@ class Recording extends Component<any, State> {
                     onPress={this.toggleAddAttendant}
                   />
                 )}
-              </Text>
-              <Text style={{fontSize: 15}}>
-                Selected subject:{' '}
+              </View>
+              <View
+                style={{
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  paddingBottom: 15,
+                  height: 50,
+                }}>
+                <Text style={{fontSize: 15}}>Selected subject: </Text>
                 {this.state.currentSubject ? (
-                  <View style={{flexDirection: 'row'}}>
-                    <Text>{this.state.currentSubject}</Text>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={{fontSize: 17, paddingRight: 10}}>
+                      {this.state.currentSubject}
+                    </Text>
                     <Icon
-                      size={20}
+                      size={25}
                       style={{fontSize: 100}}
                       name="edit"
-                      type="font-awesome"
-                      color="red"
+                      type="evilicons"
+                      color="#94D2BD"
                       onPress={this.toggleAddSubject}
                     />
                   </View>
@@ -282,11 +307,11 @@ class Recording extends Component<any, State> {
                   <Chip
                     containerStyle={{
                       alignItems: 'baseline',
-                      paddingRight: 10,
-                      height: 40,
+                      paddingLeft: 15,
                     }}
                     buttonStyle={{
-                      backgroundColor: 'red',
+                      backgroundColor: '#94D2BD',
+                      width: 80,
                     }}
                     titleStyle={{fontSize: 12}}
                     title="Select..."
@@ -294,19 +319,17 @@ class Recording extends Component<any, State> {
                     onPress={this.toggleAddSubject}
                   />
                 )}
-              </Text>
-              <Text style={{fontSize: 15}}>
-                Start time: {this.state.startTime}
-              </Text>
-              <View style={{flexDirection: 'row'}}>
+              </View>
+
+              <View style={{alignItems: 'flex-end', width: '100%'}}>
                 <Chip
                   containerStyle={{
                     alignItems: 'baseline',
                     paddingRight: 10,
-                    height: 40,
                   }}
                   buttonStyle={{
-                    backgroundColor: 'green',
+                    backgroundColor: '#0A9396',
+                    width: 80,
                   }}
                   titleStyle={{fontSize: 13}}
                   title="Set"
@@ -321,19 +344,16 @@ class Recording extends Component<any, State> {
             <View
               style={{
                 flexDirection: 'row',
-                alignContent: 'center',
+                display: 'flex',
                 justifyContent: 'center',
-                width: '100%',
+                alignItems: 'center',
               }}>
               <Text style={{fontSize: 50}}>{this.state.recordTime}</Text>
             </View>
             <View
               style={{
                 flexDirection: 'row',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 100,
+                height: 80,
                 width: '100%',
               }}>
               {this.state.isRecording ? (
@@ -354,7 +374,7 @@ class Recording extends Component<any, State> {
                       style={{fontSize: 100}}
                       name="pause"
                       type="font-awesome"
-                      color="red"
+                      color="#001219"
                       onPress={this.onPauseRecord}
                     />
                   }
@@ -377,7 +397,7 @@ class Recording extends Component<any, State> {
                       style={{fontSize: 100}}
                       name="circle"
                       type="font-awesome"
-                      color="red"
+                      color="#AE2012"
                       onPress={
                         this.state.recordSecs > 0
                           ? this.onResumeRecord
@@ -397,12 +417,14 @@ class Recording extends Component<any, State> {
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
+                  marginLeft: 20,
+                  marginRight: 20,
                 }}
                 icon={
                   <Icon
                     name="stop"
                     type="font-awesome"
-                    color="black"
+                    color="#001219"
                     onPress={this.onStopRecord}
                   />
                 }
@@ -422,7 +444,7 @@ class Recording extends Component<any, State> {
                   <Icon
                     name="save"
                     type="font-awesome"
-                    color="#f50"
+                    color="#0A9396"
                     onPress={this.createPDF}
                   />
                 }
@@ -440,6 +462,15 @@ class Recording extends Component<any, State> {
               subjects={this.state.meeting.subjects}
               tagMoment={this.state.tagMoment}
               finishAdding={this.addTagsToPoint}></AddTagsModal>
+          </Overlay>
+
+          <Overlay
+            animationType="slide"
+            isVisible={this.state.addCommentVisible}
+            onBackdropPress={this.toggleCommentOverlay}>
+            <AddCommentModal
+            tagMoment={this.state.tagMoment}
+              finishAdding={this.addCommentToPoint}></AddCommentModal>
           </Overlay>
 
           <BottomSheet
@@ -606,6 +637,7 @@ class Recording extends Component<any, State> {
 
   private onStopRecord = async () => {
     const result = await this.audioRecorderPlayer.stopRecorder();
+    console.log('result', result)
     this.audioRecorderPlayer.removeRecordBackListener();
   };
 
@@ -637,7 +669,7 @@ class Recording extends Component<any, State> {
 
     let points = this.state.points;
 
-    console.log('current', currentPoint)
+    console.log('current', currentPoint);
 
     points.push(currentPoint);
     this.setState({points});
@@ -680,20 +712,62 @@ class Recording extends Component<any, State> {
 
     console.log('si');
 
-    let file = await RNHTMLtoPDF.convert(options)
+    let file = await RNHTMLtoPDF.convert(options);
     console.log(file.filePath);
     // alert(file.filePath);
-  }
+  };
 
   private createHtml = () => {
-    const { meeting, points } = this.state;
-    const htmlReport = '<h1>Meeting: ' + meeting.name + '</h1> <h2>Participants: ' + meeting.participants.map(participant => {
-      return participant.name
-    }) + 
-    '</h2> <p>--------------------------------------------------------</p>' + points.map(point => {
-      return '<p>Attendee: ' + point.attendee + '</p> <p>Subject: ' + point.subject + '</p> <p>Attendee: ' + point.attendee + '</p>'
-    })
-    return htmlReport
+    const {meeting, points} = this.state;
+    const htmlReport =
+      '<h1>Meeting: ' +
+      meeting.name +
+      '</h1> <h2>Participants: ' +
+      (meeting.participants.map(participant => {
+        return participant.name;
+      }) +
+        ' ') +
+      '<h2>Subjects: ' +
+      (meeting.subjects.map(subject => {
+        return subject.name + ' ';
+      }) +
+        ' ') +
+      '</h2> <p>--------------------------------------------------------</p>' +
+      points.map(point => {
+        return (
+          '<p>Attendee: ' +
+          point.attendee +
+          '</p> <p>Subject: ' +
+          point.subject +
+          '</p> <p>Start time: ' +
+          point.startTime +
+          '</p> <p>End time: ' +
+          point.endTime +
+          '</p> <p>Tags: <ul>' +
+          point.tags.map(tag => {
+            return (
+              '<li>' + tag.tagTime + ' ' + tag.tagsName.toString() + '</li>'
+            );
+          }) +
+          '</ul> <p>--------------------------------------------------------</p>'
+        );
+      });
+    return htmlReport;
+  };
+
+  toggleCommentOverlay = () => {
+    this.setState({
+      addCommentVisible: !this.state.addCommentVisible,
+      tagMoment: this.state.recordTime,
+    });
+  }
+
+  addCommentToPoint = (comment: string) => {
+    this.state.currentPoint.tags.push({
+      tagsName: [comment],
+      tagTime: this.state.tagMoment,
+    });
+    this.toggleCommentOverlay();
   }
 }
 

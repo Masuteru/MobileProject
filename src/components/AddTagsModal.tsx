@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {Component} from 'react';
 import {View} from 'react-native';
 import {Chip, Icon, Text} from 'react-native-elements';
@@ -14,9 +15,11 @@ interface Props {
 
 interface State {
   currentData: Array<string>;
+  customTags: Array<string>
 }
 
 let currentData: Array<string>;
+
 
 
 
@@ -29,9 +32,11 @@ export default class AddTagsModal extends Component<Props, State> {
     // console.log('props', props);
     this.state = {
       currentData: [],
+      customTags: [],
     };
 
     currentData = [];
+    this.getCustomTags();
   }
 
   render() {
@@ -70,6 +75,20 @@ export default class AddTagsModal extends Component<Props, State> {
                 title={subject.name}
                 iconRight
                 onPress={() => this.addTag(subject.name)}
+              />
+            ))}
+          </View>
+          <Text style={{fontSize: 20}}>Custom tags:</Text>
+          <View style={{flexDirection: 'row'}}>
+            {this.state.customTags.map(tag => (
+              <Chip
+                containerStyle={{
+                  alignItems: 'baseline',
+                  paddingRight: 10,
+                }}
+                title={tag}
+                iconRight
+                onPress={() => this.addTag(tag)}
               />
             ))}
           </View>
@@ -122,6 +141,14 @@ export default class AddTagsModal extends Component<Props, State> {
 
   saveEdit = () => {
     this.props.finishAdding(currentData)
+  }
+
+  getCustomTags = async () => {
+    const tags = await AsyncStorage.getItem('customTags');
+
+    tags ? this.setState({customTags: JSON.parse(tags)}) : null
+    console.log(this.state.customTags)
+
   }
 
 
