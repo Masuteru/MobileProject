@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {firebase} from '@react-native-firebase/database';
 // import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
 import React, {Component} from 'react';
@@ -108,7 +109,6 @@ class Recording extends Component<any, State> {
   };
 
   private fbstorage = storage();
-  // private fbDatabase = database();
 
   constructor(props: any) {
     super(props);
@@ -153,6 +153,8 @@ class Recording extends Component<any, State> {
 
     this.audioRecorderPlayer = new AudioRecorderPlayer();
     this.audioRecorderPlayer.setSubscriptionDuration(0.1); // optional. Default is 0.5
+
+    this.getData();
   }
 
   public render() {
@@ -163,23 +165,19 @@ class Recording extends Component<any, State> {
             height: '100%',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
           }}>
-          <Text style={{fontSize: 25, paddingBottom: 15, paddingTop: 15}}>Meeting: {this.state.meeting.name}</Text>
+          <Text style={{fontSize: 25, paddingBottom: 15, paddingTop: 15}}>
+            Meeting: {this.state.meeting.name}
+          </Text>
 
-          <ScrollView style={{height: 200, width: '100%', backgroundColor: '#FBF8EF'}}>
+          <ScrollView
+            style={{height: 200, width: '100%', backgroundColor: '#FBF8EF'}}>
             {this.state.points.map(point => (
               <Card>
                 <Text style={{fontSize: 15}}>
-                  Current attendee: {point.attendee}
+                  {point.startTime} {point.attendee}
                 </Text>
-                <Text style={{fontSize: 15}}>
-                  Current subject: {point.subject}
-                </Text>
-                <Text style={{fontSize: 15}}>
-                  Start time: {point.startTime}
-                </Text>
-                <Text style={{fontSize: 15}}>End time: {point.endTime}</Text>
               </Card>
             ))}
           </ScrollView>
@@ -469,7 +467,7 @@ class Recording extends Component<any, State> {
             isVisible={this.state.addCommentVisible}
             onBackdropPress={this.toggleCommentOverlay}>
             <AddCommentModal
-            tagMoment={this.state.tagMoment}
+              tagMoment={this.state.tagMoment}
               finishAdding={this.addCommentToPoint}></AddCommentModal>
           </Overlay>
 
@@ -550,6 +548,7 @@ class Recording extends Component<any, State> {
   };
 
   getData = async () => {
+    this.setState({points: []});
     try {
       const jsonValue = await AsyncStorage.getItem('meetings');
       if (jsonValue) {
@@ -600,7 +599,7 @@ class Recording extends Component<any, State> {
 
     let dirs = RNFetchBlob.fs.dirs;
     const id = uuid.v4();
-    const path = dirs.DocumentDir + '/' + id.toString() + '.mp4';
+    const path = dirs.DownloadDir + '/' + this.state.meeting.name + '.mp4';
 
     this.audioData.fileId = id.toString();
 
@@ -637,27 +636,28 @@ class Recording extends Component<any, State> {
 
   private onStopRecord = async () => {
     const result = await this.audioRecorderPlayer.stopRecorder();
-    console.log('result', result)
+    console.log('result', result);
+    this.saveAudioInFirebase();
     this.audioRecorderPlayer.removeRecordBackListener();
   };
 
   private saveAudioInFirebase = async () => {
     let dirs = RNFetchBlob.fs.dirs;
-    const path = dirs.DocumentDir + '/' + this.audioData.fileId + '.mp4';
+    const path = dirs.DownloadDir + '/' + this.state.meeting.name + '.mp4';
 
-    // const newReference = database().ref('/audioData').push();
+    const newReference = firebase.database().ref('/audioData').push();
 
-    // newReference.set(this.audioData).then(() => {
-    //   this.fbstorage
-    //     .ref(this.audioData.fileId)
-    //     .putFile(path)
-    //     .then(result => {
-    //       console.log('foi!', result);
-    //     })
-    //     .catch(error => {
-    //       console.log('erro', error);
-    //     });
-    // });
+    var fbstorage = storage();
+
+    fbstorage
+      .ref(this.state.meeting.name + 'audio')
+      .putFile(path)
+      .then(result => {
+        console.log('foi!', result);
+      })
+      .catch(error => {
+        console.log('erro', error);
+      });
   };
 
   private finishSubject = () => {
@@ -704,10 +704,15 @@ class Recording extends Component<any, State> {
   };
 
   private createPDF = async () => {
+    let dirs = RNFetchBlob.fs.dirs;
+    const path = dirs.DownloadDir;
+
+    console.log(path);
+
     let options = {
       html: this.createHtml(),
-      fileName: 'test',
-      directory: RNFetchBlob.fs.dirs.DownloadDir,
+      fileName: this.state.meeting.name,
+      directory: '/Download/',
     };
 
     console.log('si');
@@ -715,6 +720,8 @@ class Recording extends Component<any, State> {
     let file = await RNHTMLtoPDF.convert(options);
     console.log(file.filePath);
     // alert(file.filePath);
+
+    this.savePDFInFirebase();
   };
 
   private createHtml = () => {
@@ -760,7 +767,7 @@ class Recording extends Component<any, State> {
       addCommentVisible: !this.state.addCommentVisible,
       tagMoment: this.state.recordTime,
     });
-  }
+  };
 
   addCommentToPoint = (comment: string) => {
     this.state.currentPoint.tags.push({
@@ -768,7 +775,26 @@ class Recording extends Component<any, State> {
       tagTime: this.state.tagMoment,
     });
     this.toggleCommentOverlay();
-  }
+  };
+
+  private savePDFInFirebase = async () => {
+    let dirs = RNFetchBlob.fs.dirs;
+    const path = dirs.DownloadDir + '/' + this.state.meeting.name + '.pdf';
+
+    console.log(path);
+
+    var fbstorage = storage();
+
+    fbstorage
+      .ref(this.state.meeting.name + 'pdf')
+      .putFile(path)
+      .then(result => {
+        console.log('foi!', result);
+      })
+      .catch(error => {
+        console.log('erro', error);
+      });
+  };
 }
 
 export default Recording;

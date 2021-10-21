@@ -1,55 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { Component } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Chip, Divider, Input, Overlay } from 'react-native-elements';
-import { Icon } from 'react-native-elements/dist/icons/Icon';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-
-interface State {
-  visible: boolean;
-}
+import React, {Component} from 'react';
+import {StyleSheet, Text, View} from 'react-native';
+import DatePicker from 'react-native-date-picker';
+import {Chip, Divider, Input, Overlay} from 'react-native-elements';
+import {Icon} from 'react-native-elements/dist/icons/Icon';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
+import RNFetchBlob from 'rn-fetch-blob';
+import RNHTMLtoPDF from 'react-native-html-to-pdf';
 
 const styles = StyleSheet.create({
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
+  rowView: {
+    paddingLeft: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 22,
   },
-  modalView: {
-    margin: 20,
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  button: {
-    borderRadius: 20,
-    padding: 10,
-    elevation: 2,
-  },
-  buttonOpen: {
-    backgroundColor: '#F194FF',
-  },
-  buttonClose: {
-    backgroundColor: '#2196F3',
-  },
-  textStyle: {
-    color: 'white',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  modalText: {
-    marginBottom: 15,
-    textAlign: 'center',
+  chip: {
+    paddingLeft: 10,
   },
 });
 
@@ -59,6 +25,7 @@ interface State {
   subVisible: boolean;
   participants: Array<any>;
   subjects: Array<any>;
+  date: Date;
 }
 
 var particpantName = '';
@@ -73,19 +40,41 @@ class Meetings extends Component<any, State> {
       subVisible: false,
       participants: [],
       subjects: [],
+      date: new Date(),
     };
   }
 
   public render() {
     return (
       <SafeAreaProvider>
-        <Text style={{fontSize: 20}}>Name:</Text>
-        <Input
-          placeholder="Insert meeting name"
-          onChangeText={name => this.setMeetingName(name)}
+        <View style={styles.rowView}>
+          <Text style={{fontSize: 20}}>Name:</Text>
+          <Input
+            containerStyle={{maxWidth: '80%', paddingTop: 10}}
+            style={{paddingTop: 10}}
+            placeholder="Insert meeting name"
+            onChangeText={name => this.setMeetingName(name)}
+          />
+        </View>
+        <Divider
+          orientation="horizontal"
+          style={{paddingTop: 15, marginBottom: 15}}
         />
 
-        <Text style={{fontSize: 20}}>Participants:</Text>
+        <DatePicker
+          date={this.state.date}
+          onDateChange={() => this.setDate()}
+        />
+
+        <View style={styles.rowView}>
+          <Text style={{fontSize: 20}}>Participants: </Text>
+          <Chip
+            containerStyle={{alignItems: 'baseline'}}
+            title="Add new"
+            iconRight
+            onPress={this.toggleOverlay}
+          />
+        </View>
         <View style={{flexDirection: 'row'}}>
           {this.state.participants.map(participant => (
             <Chip
@@ -145,16 +134,21 @@ class Meetings extends Component<any, State> {
               </View>
             </View>
           </Overlay>
+        </View>
+
+        <Divider
+          orientation="horizontal"
+          style={{paddingTop: 15, marginBottom: 15}}
+        />
+        <View style={styles.rowView}>
+          <Text style={{fontSize: 20}}>Subjects: </Text>
           <Chip
             containerStyle={{alignItems: 'baseline'}}
             title="Add new"
             iconRight
-            onPress={this.toggleOverlay}
+            onPress={this.toggleSubjectOverlay}
           />
         </View>
-        <Divider orientation="horizontal" />
-
-        <Text style={{fontSize: 20}}>Subjects:</Text>
         <View style={{flexDirection: 'row'}}>
           {this.state.subjects.map(subject => (
             <Chip
@@ -214,19 +208,28 @@ class Meetings extends Component<any, State> {
               </View>
             </View>
           </Overlay>
+        </View>
+        <Divider
+          orientation="horizontal"
+          style={{paddingTop: 15, marginBottom: 15}}
+        />
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            width: '100%',
+          }}>
           <Chip
             containerStyle={{alignItems: 'baseline'}}
-            title="Add new"
-            iconRight
-            onPress={this.toggleSubjectOverlay}
+            title="Create PDF"
+            onPress={this.createPDF}
+          />
+          <Chip
+            containerStyle={{alignItems: 'baseline'}}
+            title="Create Meeting"
+            onPress={this.createMeeting}
           />
         </View>
-        <Divider orientation="horizontal" />
-        <Chip
-          containerStyle={{alignItems: 'baseline'}}
-          title="Create Meeting"
-          onPress={this.createMeeting}
-        />
       </SafeAreaProvider>
     );
   }
@@ -285,12 +288,64 @@ class Meetings extends Component<any, State> {
     const meeting = {
       name: this.state.name,
       participants: this.state.participants,
-      subjects: this.state.subjects
-    }
-    AsyncStorage.setItem(
-      'meetings', JSON.stringify(meeting)
-    )
-  }
+      subjects: this.state.subjects,
+      date:
+        this.state.date.toLocaleDateString() +
+        ' ' +
+        this.state.date.toLocaleTimeString(),
+    };
+    AsyncStorage.setItem('meetings', JSON.stringify(meeting));
+  };
+
+  setDate = () => {
+    console.log('DAta', this.state.date);
+    console.log(this.state.date.toLocaleTimeString());
+  };
+
+  private createPDF = async () => {
+    let options = {
+      html: this.createHtml(),
+      fileName: 'Meeting: ' + this.state.name,
+      directory: RNFetchBlob.fs.dirs.DownloadDir,
+    };
+
+    console.log('si');
+
+    let file = await RNHTMLtoPDF.convert(options);
+    console.log(file.filePath);
+    // alert(file.filePath);
+  };
+
+  private createHtml = () => {
+    const meeting = {
+      name: this.state.name,
+      participants: this.state.participants,
+      subjects: this.state.subjects,
+      date:
+        this.state.date.toLocaleDateString() +
+        ' - ' +
+        this.state.date.toLocaleTimeString(),
+    };
+
+    const htmlReport =
+      '<h1>Meeting: ' +
+      meeting.name +
+      '</h1><h2>Date: ' +
+      meeting.date +
+      '</h2> <h2>Participants: ' +
+      (meeting.participants.map(participant => {
+        return participant.name;
+      }) +
+        ' ') +
+      '<h2>Subjects: ' +
+      (meeting.subjects.map(subject => {
+        return subject.name + ' ';
+      }) +
+        ' ') +
+      '</h2>';
+
+    return htmlReport;
+  };
 }
 
 export default Meetings;
