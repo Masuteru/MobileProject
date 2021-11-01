@@ -125,6 +125,7 @@ class Recording extends Component<any, State> {
         name: '',
         participants: [],
         subjects: [],
+        date: ''
       },
       currentAttendee: '',
       currentSubject: '',

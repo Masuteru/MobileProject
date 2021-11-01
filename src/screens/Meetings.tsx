@@ -7,6 +7,7 @@ import {Icon} from 'react-native-elements/dist/icons/Icon';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import RNFetchBlob from 'rn-fetch-blob';
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
+import MeetingDTO from '../interfaces/MeetingDTO';
 
 const styles = StyleSheet.create({
   rowView: {
@@ -284,8 +285,8 @@ class Meetings extends Component<any, State> {
     this.toggleSubjectOverlay();
   };
 
-  private createMeeting = () => {
-    const meeting = {
+  private createMeeting = async() => {
+    const meeting: MeetingDTO = {
       name: this.state.name,
       participants: this.state.participants,
       subjects: this.state.subjects,
@@ -294,7 +295,17 @@ class Meetings extends Component<any, State> {
         ' ' +
         this.state.date.toLocaleTimeString(),
     };
-    AsyncStorage.setItem('meetings', JSON.stringify(meeting));
+
+    let result = await AsyncStorage.getItem('meetings');
+    let meetings: MeetingDTO[] = [];
+
+    if (result) {
+      meetings = JSON.parse(result);
+      meetings.push(meeting)
+    }
+    
+    
+    AsyncStorage.setItem('meetings', JSON.stringify(meetings));
   };
 
   setDate = () => {

@@ -2,9 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {firebase} from '@react-native-firebase/database';
 // import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
-import React, {Component} from 'react';
+import React, {Component, ElementRef} from 'react';
 import {
   Dimensions,
+  FlatList,
   PermissionsAndroid,
   Platform,
   SafeAreaView,
@@ -23,7 +24,9 @@ import AudioRecorderPlayer, {
 import {BottomSheet, Card, ListItem, Overlay} from 'react-native-elements';
 import {Button} from 'react-native-elements/dist/buttons/Button';
 import {Chip} from 'react-native-elements/dist/buttons/Chip';
+import {Divider} from 'react-native-elements/dist/divider/Divider';
 import {Icon} from 'react-native-elements/dist/icons/Icon';
+import {TextElement} from 'react-native-elements/dist/text/Text';
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
 import uuid from 'react-native-uuid';
 import RNFetchBlob from 'rn-fetch-blob';
@@ -39,6 +42,13 @@ interface State {
   isRecording: boolean;
   startTime: string;
   meeting: MeetingDTO;
+  customTags: Array<string>;
+  addedTags: AddedTag[];
+}
+
+interface AddedTag {
+  time: string;
+  tag: string;
 }
 
 interface AudioData {
@@ -51,9 +61,14 @@ const screenWidth = Dimensions.get('screen').width;
 
 var isRecording = false;
 
+let tags: AddedTag[] = [];
+
+let customTags: string[] = [];
+
+let scrollView: FlatList | null;
+
 class OngoingTags extends Component<any, State> {
   private audioRecorderPlayer: AudioRecorderPlayer;
-
 
   private audioSet: AudioSet = {
     AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
@@ -74,8 +89,6 @@ class OngoingTags extends Component<any, State> {
   constructor(props: any) {
     super(props);
 
-
-
     this.state = {
       recordSecs: 0,
       recordTime: '00:00:00',
@@ -85,21 +98,19 @@ class OngoingTags extends Component<any, State> {
         name: '',
         participants: [],
         subjects: [],
+        date: '',
       },
-
+      addedTags: tags,
+      customTags: customTags,
 
       isRecording: false,
       startTime: '00:00:00',
-
-
-
-
     };
 
     this.audioRecorderPlayer = new AudioRecorderPlayer();
     this.audioRecorderPlayer.setSubscriptionDuration(0.1); // optional. Default is 0.5
 
-
+    this.getData();
   }
 
   public render() {
@@ -107,7 +118,7 @@ class OngoingTags extends Component<any, State> {
       <SafeAreaView>
         <View
           style={{
-            height: '100%',
+            height: '90%',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -212,34 +223,168 @@ class OngoingTags extends Component<any, State> {
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}
-                icon={
-                  <Icon
-                    name="save"
-                    type="font-awesome"
-                    color="#0A9396"
-                  />
-                }
+                icon={<Icon name="save" type="font-awesome" color="#0A9396" />}
               />
             </View>
           </View>
 
+          <Card containerStyle={{width: '100%'}}>
+            <View
+              style={{
+                flexDirection: 'row',
+                maxHeight: '100%',
+                paddingBottom: 30,
+              }}>
+              <ScrollView horizontal>
+                <FlatList
+                ref={ref => {scrollView = ref}} onContentSizeChange={() => {scrollView ? scrollView.scrollToEnd({animated: true}) : null}}
+                  data={this.state.addedTags}
+                  renderItem={({item}) => (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        paddingBottom: 5,
+                        alignItems: 'center',
+                      }}>
+                      <Text style={{fontSize: 17, paddingRight: 10}}>
+                        {item.time}
+                      </Text>
+                      <Divider orientation="vertical" />
+                      <Chip
+                        containerStyle={{
+                          alignItems: 'baseline',
+                          paddingLeft: 10,
+                        }}
+                        buttonStyle={{
+                          minWidth: 70,
+                        }}
+                        title={item.tag}
+                      />
+                    </View>
+                  )}></FlatList>
+                {/* {this.state.addedTags.map((tag, i) => (
+                 
+                ))} /> */}
+              </ScrollView>
+              <View style={{width: '50%'}}>
+                <ScrollView>
+                  <View>
+                    <Text
+                      style={{
+                        fontSize: 17,
+                        paddingBottom: 10,
+                        textAlign: 'center',
+                      }}>
+                      Participants:
+                    </Text>
 
-          <Card containerStyle={{width: '90%'}}>
-          <Text style={{fontSize: 17, paddingBottom: 15}}>
-                Participants: 
-              </Text>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        flexWrap: 'wrap',
+                        justifyContent: 'center',
+                      }}>
+                      {this.state.meeting.participants.map((participant, i) => (
+                        <Chip
+                          key={i}
+                          containerStyle={{
+                            alignItems: 'baseline',
+                            paddingRight: 3,
+                            paddingTop: 3,
+                            paddingBottom: 3,
+                          }}
+                          title={participant.name}
+                          onPress={() => this.addTag(participant.name)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  <View>
+                    <View>
+                      <Text
+                        style={{
+                          fontSize: 17,
+                          paddingBottom: 10,
+                          textAlign: 'center',
+                        }}>
+                        Subjects:
+                      </Text>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          flexWrap: 'wrap',
+                          justifyContent: 'center',
+                        }}>
+                        {this.state.meeting.subjects.map((subject, i) => (
+                          <Chip
+                            key={i}
+                            containerStyle={{
+                              alignItems: 'baseline',
+                              paddingRight: 10,
+                            }}
+                            title={subject.name}
+                            onPress={() => this.addTag(subject.name)}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                  <View style={{flexDirection: 'row'}}>
+                    <View>
+                      <Text
+                        style={{
+                          fontSize: 17,
+                          paddingBottom: 10,
+                          textAlign: 'center',
+                        }}>
+                        Custom tags:
+                      </Text>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          flexWrap: 'wrap',
+                          justifyContent: 'center',
+                        }}>
+                        {this.state.customTags.map((tag, i) => (
+                          <Chip
+                            key={i}
+                            containerStyle={{
+                              alignItems: 'baseline',
+                              paddingRight: 10,
+                            }}
+                            title={tag}
+                            onPress={() => this.addTag(tag)}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
           </Card>
-
-
-
-
-
         </View>
       </SafeAreaView>
     );
   }
 
+  getData = async () => {
+    try {
+      const jsonValue = await AsyncStorage.getItem('meetings');
+      const result = await AsyncStorage.getItem('customTags');
+
+      if (jsonValue && result) {
+        this.setState({
+          meeting: JSON.parse(jsonValue),
+          customTags: JSON.parse(result),
+        });
+        console.log(this.state.meeting.participants);
+      }
+    } catch (e) {}
+  };
+
   componentDidMount = async () => {
+    this.getData();
 
     if (Platform.OS === 'android') {
       try {
@@ -266,6 +411,19 @@ class OngoingTags extends Component<any, State> {
         return;
       }
     }
+  };
+
+  addTag = (tagName: string) => {
+    let tags = this.state.addedTags;
+
+    let tag: AddedTag = {
+      time: this.state.recordTime,
+      tag: tagName,
+    };
+
+    tags.push(tag);
+
+    this.setState({addedTags: tags});
   };
 
   // getData = async () => {
@@ -303,13 +461,26 @@ class OngoingTags extends Component<any, State> {
     this.audioRecorderPlayer.addRecordBackListener((e: RecordBackType) => {
       this.setState({
         recordSecs: e.currentPosition,
-        recordTime: this.audioRecorderPlayer.mmssss(
-          Math.floor(e.currentPosition),
-        ),
+        recordTime: this.msToTime(e.currentPosition),
+        // recordTime: this.audioRecorderPlayer.mmssss(
+        //   Math.floor(e.currentPosition),
+        // ),
       });
     });
 
     this.setState({isRecording: true, startTime: this.state.recordTime});
+  };
+
+  private msToTime = (duration: number) => {
+    let seconds = Math.floor((duration / 1000) % 60),
+      minutes = Math.floor((duration / (1000 * 60)) % 60),
+      hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
+
+    let hoursC = hours < 10 ? '0' + hours : hours,
+      minutesC = minutes < 10 ? '0' + minutes : minutes,
+      secondsC = seconds < 10 ? '0' + seconds : seconds;
+
+    return hoursC + ':' + minutesC + ':' + secondsC;
   };
 
   private onPauseRecord = async () => {
@@ -352,6 +523,5 @@ class OngoingTags extends Component<any, State> {
       });
   };
 }
-
 
 export default OngoingTags;
