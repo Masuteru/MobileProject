@@ -376,7 +376,7 @@ class OngoingTags extends Component<any, State> {
                         </View>
                       </View>
                     </View>
-                    <View style={{flexDirection: 'row'}}>
+                    <View>
                       <View>
                         <Text
                           style={{

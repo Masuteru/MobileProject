@@ -30,13 +30,17 @@ interface State {
   date: Date;
 }
 
+interface Props {
+  navigation: any;
+}
+
 var particpantName = '';
 var subjectName = '';
 
 let unsubscribe: any;
 
-class CreateMeeting extends Component<any, State> {
-  constructor(props: any) {
+class CreateMeeting extends Component<Props, State> {
+  constructor(props: Props) {
     super(props);
     this.state = {
       name: '',

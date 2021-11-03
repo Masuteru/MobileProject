@@ -119,24 +119,24 @@ class MeetingsList extends Component<Props, State> {
 
   getData = async () => {
     const result = await AsyncStorage.getItem('meetings');
-    firebase
-      .database()
-      .ref('/meetings')
-      .once('value')
-      .then(snapshot => {
-        meetings = snapshot.val();
-      });
+    // firebase
+    //   .database()
+    //   .ref('/meetings')
+    //   .once('value')
+    //   .then(snapshot => {
+    //     meetings = snapshot.val();
+    //   });
     if (result) {
       this.setState({meetings: JSON.parse(result)});
-      if (this.state.meetings.length === 0) {
-        firebase
-          .database()
-          .ref('/meetings')
-          .once('value')
-          .then(snapshot => {
-            meetings = snapshot.val();
-          });
-      }
+      // if (this.state.meetings.length === 0) {
+      //   firebase
+      //     .database()
+      //     .ref('/meetings')
+      //     .once('value')
+      //     .then(snapshot => {
+      //       meetings = snapshot.val();
+      //     });
+      // }
     } else {
       this.setState({meetings: meetings})
     }

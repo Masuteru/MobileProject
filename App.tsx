@@ -50,7 +50,7 @@ export default function App() {
           {props => <CustomTags {...props} extraData={'hi'} />}
         </Tab.Screen>
         <Tab.Screen name="CreateMeeting" options={{tabBarButton: () => null}}>
-          {props => <CreateMeeting {...props} extraData={'hi'} />}
+          {props => <CreateMeeting {...props} />}
         </Tab.Screen>
       </Tab.Navigator>
     </NavigationContainer>
