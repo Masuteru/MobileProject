@@ -37,18 +37,51 @@ class CustomTags extends Component<any, State> {
       <SafeAreaProvider>
         <View>
           <Text style={{fontSize: 20, paddingTop: 15, paddingBottom: 15}}>
-            Custom tags:
+            People:
           </Text>
-          <View style={{flexDirection: 'row', paddingBottom: 60, flexWrap: 'wrap'}}>
+          <View
+            style={{flexDirection: 'row', paddingBottom: 60, flexWrap: 'wrap'}}>
             {this.state.tags.map(tag => (
               <Chip
                 containerStyle={{
                   alignItems: 'baseline',
                   paddingRight: 10,
-                  paddingBottom: 10
+                  paddingBottom: 10,
                 }}
                 buttonStyle={{
-                  minWidth: 80
+                  minWidth: 80,
+                }}
+                title={tag}
+                iconRight
+                icon={
+                  <Icon
+                    size={20}
+                    style={{fontSize: 100, paddingLeft: 5}}
+                    name="close"
+                    type="font-awesome"
+                    color="white"
+                    onPress={() => this.removeTag(tag)}
+                  />
+                }
+              />
+            ))}
+          </View>
+        </View>
+        <View>
+          <Text style={{fontSize: 20, paddingTop: 15, paddingBottom: 15}}>
+            Custom tags:
+          </Text>
+          <View
+            style={{flexDirection: 'row', paddingBottom: 60, flexWrap: 'wrap'}}>
+            {this.state.tags.map(tag => (
+              <Chip
+                containerStyle={{
+                  alignItems: 'baseline',
+                  paddingRight: 10,
+                  paddingBottom: 10,
+                }}
+                buttonStyle={{
+                  minWidth: 80,
                 }}
                 title={tag}
                 iconRight

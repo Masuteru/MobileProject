@@ -2,10 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {firebase} from '@react-native-firebase/database';
 // import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
-import React, {Component, ElementRef} from 'react';
+import {useFocusEffect} from '@react-navigation/core';
+import React, {Component, ElementRef, useEffect, useState} from 'react';
 import {
   Dimensions,
   FlatList,
+  ImageBackground,
   PermissionsAndroid,
   Platform,
   SafeAreaView,
@@ -28,6 +30,7 @@ import {Divider} from 'react-native-elements/dist/divider/Divider';
 import {Icon} from 'react-native-elements/dist/icons/Icon';
 import {TextElement} from 'react-native-elements/dist/text/Text';
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
 import uuid from 'react-native-uuid';
 import RNFetchBlob from 'rn-fetch-blob';
 import AddCommentModal from '../components/AddCommentModal';
@@ -46,6 +49,10 @@ interface State {
   addedTags: AddedTag[];
 }
 
+interface Props {
+  navigation: any;
+}
+
 interface AddedTag {
   time: string;
   tag: string;
@@ -57,6 +64,20 @@ interface AudioData {
   fileId: string;
 }
 
+const getData = async () => {
+  try {
+    const jsonValue = await AsyncStorage.getItem('selectedMeeting');
+    const result = await AsyncStorage.getItem('customTags');
+    console.log('ye2');
+    if (jsonValue && result) {
+      meeting: JSON.parse(jsonValue);
+      customTags: JSON.parse(result);
+    }
+  } catch (e) {}
+};
+
+var meeting: MeetingDTO;
+
 const screenWidth = Dimensions.get('screen').width;
 
 var isRecording = false;
@@ -66,6 +87,10 @@ let tags: AddedTag[] = [];
 let customTags: string[] = [];
 
 let scrollView: FlatList | null;
+
+let focusListener: any;
+
+let unsubscribe: any;
 
 class OngoingTags extends Component<any, State> {
   private audioRecorderPlayer: AudioRecorderPlayer;
@@ -86,7 +111,7 @@ class OngoingTags extends Component<any, State> {
 
   private fbstorage = storage();
 
-  constructor(props: any) {
+  constructor(props: Props) {
     super(props);
 
     this.state = {
@@ -110,36 +135,93 @@ class OngoingTags extends Component<any, State> {
     this.audioRecorderPlayer = new AudioRecorderPlayer();
     this.audioRecorderPlayer.setSubscriptionDuration(0.1); // optional. Default is 0.5
 
+    // focusListener = this.props.navigation.addListener('focus', () => {
+    //   this.getData();
+    // });
+
     this.getData();
   }
 
   public render() {
     return (
-      <SafeAreaView>
-        <View
-          style={{
-            height: '90%',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}>
-          <View style={{}}>
-            <View
-              style={{
-                flexDirection: 'row',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
-              <Text style={{fontSize: 50}}>{this.state.recordTime}</Text>
-            </View>
-            <View
-              style={{
-                flexDirection: 'row',
-                height: 80,
-                width: '100%',
-              }}>
-              {this.state.isRecording ? (
+      <SafeAreaProvider>
+        <ImageBackground
+          source={require('../assets/bg.jpg')}
+          resizeMode="cover"
+          style={{flex: 1}}>
+          <View
+            style={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              flex: 1,
+            }}>
+            <View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <Text style={{fontSize: 50}}>{this.state.recordTime}</Text>
+              </View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  height: 80,
+                  width: '100%',
+                }}>
+                {this.state.isRecording ? (
+                  <Button
+                    raised
+                    type="solid"
+                    containerStyle={{
+                      height: 60,
+                      width: 60,
+                      borderRadius: 200,
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                    icon={
+                      <Icon
+                        size={40}
+                        style={{fontSize: 100}}
+                        name="pause"
+                        type="font-awesome"
+                        color="#001219"
+                        onPress={this.onPauseRecord}
+                      />
+                    }
+                  />
+                ) : (
+                  <Button
+                    raised
+                    type="solid"
+                    containerStyle={{
+                      height: 60,
+                      width: 60,
+                      borderRadius: 200,
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                    icon={
+                      <Icon
+                        size={40}
+                        style={{fontSize: 100}}
+                        name="circle"
+                        type="font-awesome"
+                        color="#AE2012"
+                        onPress={
+                          this.state.recordSecs > 0
+                            ? this.onResumeRecord
+                            : this.onStartRecord
+                        }
+                      />
+                    }
+                  />
+                )}
                 <Button
                   raised
                   type="solid"
@@ -150,19 +232,18 @@ class OngoingTags extends Component<any, State> {
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
+                    marginLeft: 20,
+                    marginRight: 20,
                   }}
                   icon={
                     <Icon
-                      size={40}
-                      style={{fontSize: 100}}
-                      name="pause"
+                      name="stop"
                       type="font-awesome"
                       color="#001219"
-                      onPress={this.onPauseRecord}
+                      onPress={this.onStopRecord}
                     />
                   }
                 />
-              ) : (
                 <Button
                   raised
                   type="solid"
@@ -175,217 +256,208 @@ class OngoingTags extends Component<any, State> {
                     alignItems: 'center',
                   }}
                   icon={
-                    <Icon
-                      size={40}
-                      style={{fontSize: 100}}
-                      name="circle"
-                      type="font-awesome"
-                      color="#AE2012"
-                      onPress={
-                        this.state.recordSecs > 0
-                          ? this.onResumeRecord
-                          : this.onStartRecord
-                      }
-                    />
+                    <Icon name="save" type="font-awesome" color="#0A9396" />
                   }
                 />
-              )}
-              <Button
-                raised
-                type="solid"
-                containerStyle={{
-                  height: 60,
-                  width: 60,
-                  borderRadius: 200,
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  marginLeft: 20,
-                  marginRight: 20,
-                }}
-                icon={
-                  <Icon
-                    name="stop"
-                    type="font-awesome"
-                    color="#001219"
-                    onPress={this.onStopRecord}
-                  />
-                }
-              />
-              <Button
-                raised
-                type="solid"
-                containerStyle={{
-                  height: 60,
-                  width: 60,
-                  borderRadius: 200,
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
-                icon={<Icon name="save" type="font-awesome" color="#0A9396" />}
-              />
-            </View>
-          </View>
-
-          <Card containerStyle={{width: '100%'}}>
-            <View
-              style={{
-                flexDirection: 'row',
-                maxHeight: '100%',
-                paddingBottom: 30,
-              }}>
-              <ScrollView horizontal>
-                <FlatList
-                ref={ref => {scrollView = ref}} onContentSizeChange={() => {scrollView ? scrollView.scrollToEnd({animated: true}) : null}}
-                  data={this.state.addedTags}
-                  renderItem={({item}) => (
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        paddingBottom: 5,
-                        alignItems: 'center',
-                      }}>
-                      <Text style={{fontSize: 17, paddingRight: 10}}>
-                        {item.time}
-                      </Text>
-                      <Divider orientation="vertical" />
-                      <Chip
-                        containerStyle={{
-                          alignItems: 'baseline',
-                          paddingLeft: 10,
-                        }}
-                        buttonStyle={{
-                          minWidth: 70,
-                        }}
-                        title={item.tag}
-                      />
-                    </View>
-                  )}></FlatList>
-                {/* {this.state.addedTags.map((tag, i) => (
-                 
-                ))} /> */}
-              </ScrollView>
-              <View style={{width: '50%'}}>
-                <ScrollView>
-                  <View>
-                    <Text
-                      style={{
-                        fontSize: 17,
-                        paddingBottom: 10,
-                        textAlign: 'center',
-                      }}>
-                      Participants:
-                    </Text>
-
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        flexWrap: 'wrap',
-                        justifyContent: 'center',
-                      }}>
-                      {this.state.meeting.participants.map((participant, i) => (
-                        <Chip
-                          key={i}
-                          containerStyle={{
-                            alignItems: 'baseline',
-                            paddingRight: 3,
-                            paddingTop: 3,
-                            paddingBottom: 3,
-                          }}
-                          title={participant.name}
-                          onPress={() => this.addTag(participant.name)}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                  <View>
-                    <View>
-                      <Text
-                        style={{
-                          fontSize: 17,
-                          paddingBottom: 10,
-                          textAlign: 'center',
-                        }}>
-                        Subjects:
-                      </Text>
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          flexWrap: 'wrap',
-                          justifyContent: 'center',
-                        }}>
-                        {this.state.meeting.subjects.map((subject, i) => (
-                          <Chip
-                            key={i}
-                            containerStyle={{
-                              alignItems: 'baseline',
-                              paddingRight: 10,
-                            }}
-                            title={subject.name}
-                            onPress={() => this.addTag(subject.name)}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  </View>
-                  <View style={{flexDirection: 'row'}}>
-                    <View>
-                      <Text
-                        style={{
-                          fontSize: 17,
-                          paddingBottom: 10,
-                          textAlign: 'center',
-                        }}>
-                        Custom tags:
-                      </Text>
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          flexWrap: 'wrap',
-                          justifyContent: 'center',
-                        }}>
-                        {this.state.customTags.map((tag, i) => (
-                          <Chip
-                            key={i}
-                            containerStyle={{
-                              alignItems: 'baseline',
-                              paddingRight: 10,
-                            }}
-                            title={tag}
-                            onPress={() => this.addTag(tag)}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  </View>
-                </ScrollView>
               </View>
             </View>
-          </Card>
-        </View>
-      </SafeAreaView>
+
+            <View
+              style={{
+                paddingTop: 10,
+                paddingBottom: 10,
+                paddingLeft: 10,
+                width: '100%',
+                flex: 1,
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                }}>
+                <ScrollView horizontal>
+                  <FlatList
+                    ref={ref => {
+                      scrollView = ref;
+                    }}
+                    onContentSizeChange={() => {
+                      scrollView
+                        ? scrollView.scrollToEnd({animated: true})
+                        : null;
+                    }}
+                    data={this.state.addedTags}
+                    renderItem={({item}) => (
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          paddingBottom: 5,
+                          alignItems: 'center',
+                        }}>
+                        <Text style={{fontSize: 17, paddingRight: 10}}>
+                          {item.time}
+                        </Text>
+                        <Divider orientation="vertical" />
+                        <Chip
+                          containerStyle={{
+                            alignItems: 'baseline',
+                            paddingLeft: 10,
+                          }}
+                          buttonStyle={{
+                            minWidth: 70,
+                          }}
+                          title={item.tag}
+                        />
+                      </View>
+                    )}></FlatList>
+                </ScrollView>
+                <View style={{width: '50%', borderLeftWidth: 0.2}}>
+                  <ScrollView>
+                    <View>
+                      <Text
+                        style={{
+                          fontSize: 17,
+                          paddingBottom: 10,
+                          textAlign: 'center',
+                        }}>
+                        Participants:
+                      </Text>
+
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          flexWrap: 'wrap',
+                          justifyContent: 'center',
+                        }}>
+                        {this.state.meeting.participants.map(
+                          (participant, i) => (
+                            <Chip
+                              key={i}
+                              containerStyle={{
+                                alignItems: 'baseline',
+                                paddingRight: 3,
+                                paddingTop: 3,
+                                paddingBottom: 3,
+                              }}
+                              title={participant.name}
+                              onPress={() => this.addTag(participant.name)}
+                            />
+                          ),
+                        )}
+                      </View>
+                    </View>
+                    <View>
+                      <View>
+                        <Text
+                          style={{
+                            fontSize: 17,
+                            paddingBottom: 10,
+                            textAlign: 'center',
+                          }}>
+                          Subjects:
+                        </Text>
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            flexWrap: 'wrap',
+                            justifyContent: 'center',
+                          }}>
+                          {this.state.meeting.subjects.map((subject, i) => (
+                            <Chip
+                              key={i}
+                              containerStyle={{
+                                alignItems: 'baseline',
+                                paddingRight: 10,
+                                paddingTop: 3,
+                              }}
+                              title={subject.name}
+                              onPress={() => this.addTag(subject.name)}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                    <View style={{flexDirection: 'row'}}>
+                      <View>
+                        <Text
+                          style={{
+                            fontSize: 17,
+                            paddingBottom: 10,
+                            textAlign: 'center',
+                          }}>
+                          Custom tags:
+                        </Text>
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            flexWrap: 'wrap',
+                            justifyContent: 'center',
+                          }}>
+                          {this.state.customTags.map((tag, i) => (
+                            <Chip
+                              key={i}
+                              containerStyle={{
+                                alignItems: 'baseline',
+                                paddingRight: 10,
+                              }}
+                              title={tag}
+                              onPress={() => this.addTag(tag)}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  </ScrollView>
+                </View>
+              </View>
+            </View>
+          </View>
+        </ImageBackground>
+      </SafeAreaProvider>
     );
   }
 
   getData = async () => {
+    console.log('entrou');
     try {
-      const jsonValue = await AsyncStorage.getItem('meetings');
-      const result = await AsyncStorage.getItem('customTags');
+      console.log('try');
+      console.log('1');
 
-      if (jsonValue && result) {
+      const customTags = await AsyncStorage.getItem('customTags');
+      const selectedMeeting = await AsyncStorage.getItem('selectedMeeting');
+      console.log('2');
+
+      if (selectedMeeting) {
         this.setState({
-          meeting: JSON.parse(jsonValue),
-          customTags: JSON.parse(result),
+          meeting: JSON.parse(selectedMeeting),
         });
-        console.log(this.state.meeting.participants);
       }
+      console.log('3');
+      if (customTags) {
+        this.setState({
+          customTags: JSON.parse(customTags),
+        });
+      }
+      console.log('4');
+
+      console.log(this.state);
     } catch (e) {}
   };
 
-  componentDidMount = async () => {
-    this.getData();
+  componentDidMount() {
+    const {navigation} = this.props;
+    this.getPermissions();
+    unsubscribe = navigation.addListener('focus', () => {
+      //call your function that update component
+      console.log('what');
+      this.getData();
+    });
+  }
 
+  componentWillUnmount() {
+    unsubscribe();
+  }
+
+  getPermissions = async () => {
     if (Platform.OS === 'android') {
       try {
         const grants = await PermissionsAndroid.requestMultiple([
@@ -412,6 +484,36 @@ class OngoingTags extends Component<any, State> {
       }
     }
   };
+
+  // componentDidMount = async () => {
+  //   this.getData();
+
+  // if (Platform.OS === 'android') {
+  //   try {
+  //     const grants = await PermissionsAndroid.requestMultiple([
+  //       PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+  //       PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+  //       PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+  //     ]);
+
+  //     if (
+  //       grants['android.permission.WRITE_EXTERNAL_STORAGE'] ===
+  //         PermissionsAndroid.RESULTS.GRANTED &&
+  //       grants['android.permission.READ_EXTERNAL_STORAGE'] ===
+  //         PermissionsAndroid.RESULTS.GRANTED &&
+  //       grants['android.permission.RECORD_AUDIO'] ===
+  //         PermissionsAndroid.RESULTS.GRANTED
+  //     ) {
+  //     } else {
+  //       console.log('All required permissions not granted');
+  //       return;
+  //     }
+  //   } catch (err) {
+  //     console.warn(err);
+  //     return;
+  //   }
+  // }
+  // };
 
   addTag = (tagName: string) => {
     let tags = this.state.addedTags;
