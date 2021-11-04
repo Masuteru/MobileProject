@@ -277,6 +277,7 @@ class OngoingTags extends Component<any, State> {
                 }}>
                 <ScrollView horizontal>
                   <FlatList
+                  windowSize={10}
                     ref={ref => {
                       scrollView = ref;
                     }}
@@ -558,7 +559,9 @@ class OngoingTags extends Component<any, State> {
     const uri = await this.audioRecorderPlayer.startRecorder(
       path,
       this.audioSet,
-    );
+    ).catch(error => {
+      console.log('erro', error)
+    });
 
     this.audioRecorderPlayer.addRecordBackListener((e: RecordBackType) => {
       this.setState({

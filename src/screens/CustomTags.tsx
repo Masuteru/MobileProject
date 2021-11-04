@@ -35,7 +35,7 @@ class CustomTags extends Component<any, State> {
   public render() {
     return (
       <SafeAreaProvider>
-        <View>
+        {/* <View>
           <Text style={{fontSize: 20, paddingTop: 15, paddingBottom: 15}}>
             People:
           </Text>
@@ -66,7 +66,7 @@ class CustomTags extends Component<any, State> {
               />
             ))}
           </View>
-        </View>
+        </View> */}
         <View>
           <Text style={{fontSize: 20, paddingTop: 15, paddingBottom: 15}}>
             Custom tags:

@@ -33,7 +33,6 @@ class MeetingsList extends Component<Props, State> {
   }
 
   componentDidMount() {
-    console.log('hete rif');
     const {navigation} = this.props;
     unsubscribe = navigation.addListener('focus', () => {
       this.getData();
@@ -64,7 +63,19 @@ class MeetingsList extends Component<Props, State> {
             </Text>
             <ScrollView>
               {this.state.meetings.map(meeting => (
-                <Card>
+                <Card
+                  containerStyle={{
+                    borderRadius: 4,
+                    borderWidth: 0,
+                    shadowColor: '#000',
+                    shadowOffset: {
+                      width: 20,
+                      height: 20,
+                    },
+                    shadowOpacity: 0.8,
+                    shadowRadius: 8.84,
+                    elevation: 5,
+                  }}>
                   <View
                     style={{
                       flexDirection: 'row',
@@ -138,7 +149,7 @@ class MeetingsList extends Component<Props, State> {
       //     });
       // }
     } else {
-      this.setState({meetings: meetings})
+      this.setState({meetings: meetings});
     }
   };
 
