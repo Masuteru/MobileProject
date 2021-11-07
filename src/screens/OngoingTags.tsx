@@ -8,6 +8,7 @@ import {
   Dimensions,
   FlatList,
   ImageBackground,
+  ListRenderItem,
   PermissionsAndroid,
   Platform,
   SafeAreaView,
@@ -23,7 +24,13 @@ import AudioRecorderPlayer, {
   AVEncodingOption,
   RecordBackType,
 } from 'react-native-audio-recorder-player';
-import {BottomSheet, Card, ListItem, Overlay} from 'react-native-elements';
+import {
+  BottomSheet,
+  Card,
+  ListItem,
+  Overlay,
+  Switch,
+} from 'react-native-elements';
 import {Button} from 'react-native-elements/dist/buttons/Button';
 import {Chip} from 'react-native-elements/dist/buttons/Chip';
 import {Divider} from 'react-native-elements/dist/divider/Divider';
@@ -92,8 +99,36 @@ let focusListener: any;
 
 let unsubscribe: any;
 
+var time: string;
+
+const renderItem: ListRenderItem<AddedTag> = ({item}) => (
+  <View
+    style={{
+      flexDirection: 'row',
+      paddingBottom: 5,
+      alignItems: 'center',
+    }}>
+    <Text style={{fontSize: 17, paddingRight: 10}}>{item.time}</Text>
+    <Divider orientation="vertical" />
+    <Chip
+      containerStyle={{
+        alignItems: 'baseline',
+        paddingLeft: 10,
+      }}
+      buttonStyle={{
+        minWidth: 70,
+      }}
+      title={item.tag}
+    />
+  </View>
+);
+
 class OngoingTags extends Component<any, State> {
   private audioRecorderPlayer: AudioRecorderPlayer;
+  private interval: any;
+
+  private recordSecs = 0;
+  private recordTime = '';
 
   private audioSet: AudioSet = {
     AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
@@ -153,25 +188,196 @@ class OngoingTags extends Component<any, State> {
             style={{
               justifyContent: 'space-between',
               alignItems: 'center',
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
               flex: 1,
             }}>
-            <View>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center', paddingTop: 5, paddingBottom: 5}}>
+              <Text
+                style={{
+                  fontSize: 19,
+                  paddingLeft: 10,
+                  fontWeight: 'bold'
+                }}>
+                {this.state.meeting.name}
+              </Text>
+              <Chip
+                containerStyle={{
+                  alignItems: 'baseline',
+                  paddingRight: 5,
+                }}
+                buttonStyle={{
+                  backgroundColor: '#BB3E03'
+                }}
+                title={'Finish Meeting'}
+                onPress={() => this.finishMeeting()}
+              />
+            </View>
+            <View
+              style={{
+                borderTopWidth: 0.2,
+                paddingLeft: 10,
+                width: '100%',
+                flex: 1,
+              }}>
               <View
                 style={{
                   flexDirection: 'row',
+                  height: '100%',
+                }}>
+                <ScrollView horizontal>
+                  <FlatList
+                    windowSize={10}
+                    removeClippedSubviews={true}
+                    ref={ref => {
+                      scrollView = ref;
+                    }}
+                    onContentSizeChange={() => {
+                      scrollView
+                        ? scrollView.scrollToEnd({animated: true})
+                        : null;
+                    }}
+                    data={this.state.addedTags}
+                    renderItem={renderItem}></FlatList>
+                </ScrollView>
+                <View style={{width: '50%', borderLeftWidth: 0.2}}>
+                  <ScrollView>
+                    <View style={{borderBottomWidth: 0.2}}>
+                      <Text
+                        style={{
+                          fontSize: 17,
+                          paddingBottom: 10,
+                          textAlign: 'center',
+                        }}>
+                        Participants
+                      </Text>
+
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          flexWrap: 'wrap',
+                          justifyContent: 'center',
+                        }}>
+                        {this.state.meeting.participants.map(
+                          (participant, i) => (
+                            <Chip
+                              key={i}
+                              containerStyle={{
+                                alignItems: 'baseline',
+                                paddingRight: 3,
+                                paddingTop: 3,
+                                paddingBottom: 3,
+                              }}
+                              title={participant.name}
+                              onPress={() => this.addTag(participant.name)}
+                            />
+                          ),
+                        )}
+                      </View>
+                    </View>
+                    <View style={{borderBottomWidth: 0.2}}>
+                      <View>
+                        <Text
+                          style={{
+                            fontSize: 17,
+                            paddingBottom: 10,
+                            textAlign: 'center',
+                          }}>
+                          Subjects:
+                        </Text>
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            flexWrap: 'wrap',
+                            justifyContent: 'center',
+                          }}>
+                          {this.state.meeting.subjects.map((subject, i) => (
+                            <Chip
+                              key={i}
+                              containerStyle={{
+                                alignItems: 'baseline',
+                                paddingRight: 5,
+                                paddingTop: 3,
+                                paddingBottom: 3,
+                              }}
+                              title={subject.name}
+                              onPress={() => this.addTag(subject.name)}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                    <View>
+                      <View>
+                        <Text
+                          style={{
+                            fontSize: 17,
+                            paddingBottom: 10,
+                            textAlign: 'center',
+                          }}>
+                          Custom tags:
+                        </Text>
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            flexWrap: 'wrap',
+                            justifyContent: 'center',
+                          }}>
+                          {this.state.customTags.map((tag, i) => (
+                            <Chip
+                              key={i}
+                              containerStyle={{
+                                alignItems: 'baseline',
+                                paddingRight: 5,
+                                paddingBottom: 3,
+                              }}
+                              title={tag}
+                              onPress={() => this.addTag(tag)}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  </ScrollView>
+                </View>
+              </View>
+            </View>
+
+            <View
+              style={{
+                flexDirection: 'row',
+                width: '100%',
+                justifyContent: 'space-evenly',
+                alignItems: 'center',
+                height: 100,
+                borderTopWidth: 0.2,
+              }}>
+              <View
+                style={{
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}>
                 <Text style={{fontSize: 50}}>{this.state.recordTime}</Text>
               </View>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  height: 80,
-                  width: '100%',
-                }}>
-                {this.state.isRecording ? (
+              <View>
+                <View
+                  style={{
+                    justifyContent: 'space-evenly',
+                    alignItems: 'center',
+                    borderRadius: 4,
+                    height: '100%',
+                  }}>
+                  <Switch
+                    value={this.state.isRecording}
+                    onChange={() => this.setRecordingState()}
+                    style={{transform: [{scaleX: 1.7}, {scaleY: 1.7}]}}
+                    color="#AE2012"
+                  />
+                  <Text
+                    style={{fontSize: 23, paddingRight: 10, paddingLeft: 10}}>
+                    Rec
+                  </Text>
+                </View>
+                {/* {this.state.isRecording ? (
                   <Button
                     raised
                     type="solid"
@@ -221,8 +427,8 @@ class OngoingTags extends Component<any, State> {
                       />
                     }
                   />
-                )}
-                <Button
+                )} */}
+                {/* <Button
                   raised
                   type="solid"
                   containerStyle={{
@@ -243,8 +449,8 @@ class OngoingTags extends Component<any, State> {
                       onPress={this.onStopRecord}
                     />
                   }
-                />
-                <Button
+                /> */}
+                {/* <Button
                   raised
                   type="solid"
                   containerStyle={{
@@ -258,157 +464,7 @@ class OngoingTags extends Component<any, State> {
                   icon={
                     <Icon name="save" type="font-awesome" color="#0A9396" />
                   }
-                />
-              </View>
-            </View>
-
-            <View
-              style={{
-                paddingTop: 10,
-                paddingBottom: 10,
-                paddingLeft: 10,
-                width: '100%',
-                flex: 1,
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                }}>
-                <ScrollView horizontal>
-                  <FlatList
-                  windowSize={10}
-                    ref={ref => {
-                      scrollView = ref;
-                    }}
-                    onContentSizeChange={() => {
-                      scrollView
-                        ? scrollView.scrollToEnd({animated: true})
-                        : null;
-                    }}
-                    data={this.state.addedTags}
-                    renderItem={({item}) => (
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          paddingBottom: 5,
-                          alignItems: 'center',
-                        }}>
-                        <Text style={{fontSize: 17, paddingRight: 10}}>
-                          {item.time}
-                        </Text>
-                        <Divider orientation="vertical" />
-                        <Chip
-                          containerStyle={{
-                            alignItems: 'baseline',
-                            paddingLeft: 10,
-                          }}
-                          buttonStyle={{
-                            minWidth: 70,
-                          }}
-                          title={item.tag}
-                        />
-                      </View>
-                    )}></FlatList>
-                </ScrollView>
-                <View style={{width: '50%', borderLeftWidth: 0.2}}>
-                  <ScrollView>
-                    <View>
-                      <Text
-                        style={{
-                          fontSize: 17,
-                          paddingBottom: 10,
-                          textAlign: 'center',
-                        }}>
-                        Participants:
-                      </Text>
-
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          flexWrap: 'wrap',
-                          justifyContent: 'center',
-                        }}>
-                        {this.state.meeting.participants.map(
-                          (participant, i) => (
-                            <Chip
-                              key={i}
-                              containerStyle={{
-                                alignItems: 'baseline',
-                                paddingRight: 3,
-                                paddingTop: 3,
-                                paddingBottom: 3,
-                              }}
-                              title={participant.name}
-                              onPress={() => this.addTag(participant.name)}
-                            />
-                          ),
-                        )}
-                      </View>
-                    </View>
-                    <View>
-                      <View>
-                        <Text
-                          style={{
-                            fontSize: 17,
-                            paddingBottom: 10,
-                            textAlign: 'center',
-                          }}>
-                          Subjects:
-                        </Text>
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            flexWrap: 'wrap',
-                            justifyContent: 'center',
-                          }}>
-                          {this.state.meeting.subjects.map((subject, i) => (
-                            <Chip
-                              key={i}
-                              containerStyle={{
-                                alignItems: 'baseline',
-                                paddingRight: 10,
-                                paddingTop: 3,
-                              }}
-                              title={subject.name}
-                              onPress={() => this.addTag(subject.name)}
-                            />
-                          ))}
-                        </View>
-                      </View>
-                    </View>
-                    <View>
-                      <View>
-                        <Text
-                          style={{
-                            fontSize: 17,
-                            paddingBottom: 10,
-                            textAlign: 'center',
-                          }}>
-                          Custom tags:
-                        </Text>
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            flexWrap: 'wrap',
-                            justifyContent: 'center',
-                          }}>
-                          {this.state.customTags.map((tag, i) => (
-                            <Chip
-                              key={i}
-                              containerStyle={{
-                                alignItems: 'baseline',
-                                paddingRight: 10,
-                              }}
-                              title={tag}
-                              onPress={() => this.addTag(tag)}
-                            />
-                          ))}
-                        </View>
-                      </View>
-                    </View>
-                  </ScrollView>
-                </View>
+                /> */}
               </View>
             </View>
           </View>
@@ -455,6 +511,7 @@ class OngoingTags extends Component<any, State> {
   }
 
   componentWillUnmount() {
+    clearInterval(this.interval);
     unsubscribe();
   }
 
@@ -517,16 +574,20 @@ class OngoingTags extends Component<any, State> {
   // };
 
   addTag = (tagName: string) => {
-    let tags = this.state.addedTags;
+    // let tags = this.state.addedTags;
 
     let tag: AddedTag = {
       time: this.state.recordTime,
       tag: tagName,
     };
 
-    tags.push(tag);
+    // tags.push(tag);
 
-    this.setState({addedTags: tags});
+    this.setState(prevState => ({
+      addedTags: [...prevState.addedTags, tag],
+    }));
+
+    // this.setState({addedTags: tags});
   };
 
   // getData = async () => {
@@ -556,24 +617,26 @@ class OngoingTags extends Component<any, State> {
 
     this.audioData.fileId = id.toString();
 
-    const uri = await this.audioRecorderPlayer.startRecorder(
-      path,
-      this.audioSet,
-    ).catch(error => {
-      console.log('erro', error)
-    });
+    const uri = await this.audioRecorderPlayer
+      .startRecorder(path, this.audioSet)
+      .catch(error => {
+        console.log('erro', error);
+      });
 
     this.audioRecorderPlayer.addRecordBackListener((e: RecordBackType) => {
       this.setState({
+        // this.recordSecs = e.currentPosition;
+        // this.recordTime = this.msToTime(e.currentPosition);
+        // console.log('guys', this.recordTime, this.recordSecs);
+        // console.log('state', this.state);
         recordSecs: e.currentPosition,
         recordTime: this.msToTime(e.currentPosition),
-        // recordTime: this.audioRecorderPlayer.mmssss(
-        //   Math.floor(e.currentPosition),
-        // ),
       });
     });
 
     this.setState({isRecording: true, startTime: this.state.recordTime});
+
+    // this.interval = setInterval(() => this.setState({ recordSecs: this.recordSecs, recordTime: this.recordTime }), 1000);
   };
 
   private msToTime = (duration: number) => {
@@ -627,6 +690,22 @@ class OngoingTags extends Component<any, State> {
         console.log('erro', error);
       });
   };
+
+  setRecordingState() {
+    if (this.state.recordSecs > 0) {
+      if (this.state.isRecording) {
+        this.onPauseRecord();
+      } else {
+        this.onResumeRecord();
+      }
+    } else {
+      this.onStartRecord();
+    }
+  }
+
+  finishMeeting() {
+    
+  }
 }
 
 export default OngoingTags;
