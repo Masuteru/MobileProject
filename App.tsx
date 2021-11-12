@@ -1,8 +1,8 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {NavigationContainer} from '@react-navigation/native';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import * as React from 'react';
-import { Icon } from 'react-native-elements';
+import {Icon} from 'react-native-elements';
 import CreateMeeting from './src/screens/CreateMeeting';
 import CustomTags from './src/screens/CustomTags';
 import MeetingsList from './src/screens/MeetingsList';
@@ -27,12 +27,19 @@ export default function App() {
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
+          tabBarHideOnKeyboard: true,
         }}>
         <Tab.Screen
           name="Meetings"
           options={{
             tabBarIcon: ({focused}) => {
-              return <Icon name="comments" type="font-awesome" color={focused ? '#005F73' : 'gray'} />;
+              return (
+                <Icon
+                  name="comments"
+                  type="font-awesome"
+                  color={focused ? '#005F73' : 'gray'}
+                />
+              );
             },
           }}>
           {props => <MeetingsList {...props} />}
@@ -42,9 +49,15 @@ export default function App() {
         </Tab.Screen>
         <Tab.Screen
           name="Tags"
-          options={{  
+          options={{
             tabBarIcon: ({focused}) => {
-              return <Icon name="tag" type="font-awesome" color={focused ? '#005F73' : 'gray'} />;
+              return (
+                <Icon
+                  name="tag"
+                  type="font-awesome"
+                  color={focused ? '#005F73' : 'gray'}
+                />
+              );
             },
           }}>
           {props => <CustomTags {...props} extraData={'hi'} />}

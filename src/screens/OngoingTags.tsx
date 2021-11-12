@@ -2,16 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {firebase} from '@react-native-firebase/database';
 // import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
-import {useFocusEffect} from '@react-navigation/core';
-import React, {Component, ElementRef, useEffect, useState} from 'react';
+import React, {Component} from 'react';
 import {
+  Alert,
   Dimensions,
   FlatList,
   ImageBackground,
   ListRenderItem,
   PermissionsAndroid,
   Platform,
-  SafeAreaView,
   ScrollView,
   Text,
   View,
@@ -24,25 +23,14 @@ import AudioRecorderPlayer, {
   AVEncodingOption,
   RecordBackType,
 } from 'react-native-audio-recorder-player';
-import {
-  BottomSheet,
-  Card,
-  ListItem,
-  Overlay,
-  Switch,
-} from 'react-native-elements';
-import {Button} from 'react-native-elements/dist/buttons/Button';
+import {Switch} from 'react-native-elements';
 import {Chip} from 'react-native-elements/dist/buttons/Chip';
 import {Divider} from 'react-native-elements/dist/divider/Divider';
-import {Icon} from 'react-native-elements/dist/icons/Icon';
-import {TextElement} from 'react-native-elements/dist/text/Text';
-import RNHTMLtoPDF from 'react-native-html-to-pdf';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import uuid from 'react-native-uuid';
 import RNFetchBlob from 'rn-fetch-blob';
-import AddCommentModal from '../components/AddCommentModal';
-import AddTagsModal from '../components/AddTagsModal';
 import MeetingDTO from '../interfaces/MeetingDTO';
+import RNHTMLtoPDF from 'react-native-html-to-pdf';
 
 interface State {
   recordSecs: number;
@@ -191,12 +179,20 @@ class OngoingTags extends Component<any, State> {
               backgroundColor: 'rgba(255, 255, 255, 0.9)',
               flex: 1,
             }}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center', paddingTop: 5, paddingBottom: 5}}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                width: '100%',
+                alignItems: 'center',
+                paddingTop: 5,
+                paddingBottom: 5,
+              }}>
               <Text
                 style={{
                   fontSize: 19,
                   paddingLeft: 10,
-                  fontWeight: 'bold'
+                  fontWeight: 'bold',
                 }}>
                 {this.state.meeting.name}
               </Text>
@@ -206,10 +202,10 @@ class OngoingTags extends Component<any, State> {
                   paddingRight: 5,
                 }}
                 buttonStyle={{
-                  backgroundColor: '#BB3E03'
+                  backgroundColor: '#BB3E03',
                 }}
                 title={'Finish Meeting'}
-                onPress={() => this.finishMeeting()}
+                onPress={() => this.confirmFinishMeeting()}
               />
             </View>
             <View
@@ -672,6 +668,42 @@ class OngoingTags extends Component<any, State> {
     this.audioRecorderPlayer.removeRecordBackListener();
   };
 
+  setRecordingState() {
+    if (this.state.recordSecs > 0) {
+      if (this.state.isRecording) {
+        this.onPauseRecord();
+      } else {
+        this.onResumeRecord();
+      }
+    } else {
+      this.onStartRecord();
+    }
+  }
+
+  confirmFinishMeeting() {
+    Alert.alert('Are you sure you want to finish the meeting?', undefined, [
+      {
+        text: 'No',
+      },
+      {text: 'Yes', onPress: () => this.finishMeeting()},
+    ]);
+  }
+
+  finishMeeting = async () => {
+    const result = await this.audioRecorderPlayer.stopRecorder();
+    this.audioRecorderPlayer.removeRecordBackListener();
+    console.log('result', result);
+    await this.createPDF();
+
+    Alert.alert(
+      'Meeting finished, audio and document saved in storage',
+      undefined,
+      [{text: 'Ok', onPress: () => this.props.navigation.navigate('Meetings')}],
+    );
+
+    // this.saveAudioInFirebase();
+  };
+
   private saveAudioInFirebase = async () => {
     let dirs = RNFetchBlob.fs.dirs;
     const path = dirs.DownloadDir + '/' + this.state.meeting.name + '.mp4';
@@ -691,21 +723,49 @@ class OngoingTags extends Component<any, State> {
       });
   };
 
-  setRecordingState() {
-    if (this.state.recordSecs > 0) {
-      if (this.state.isRecording) {
-        this.onPauseRecord();
-      } else {
-        this.onResumeRecord();
-      }
-    } else {
-      this.onStartRecord();
-    }
-  }
+  private createPDF = async () => {
+    let dirs = RNFetchBlob.fs.dirs;
+    const path = dirs.DownloadDir;
 
-  finishMeeting() {
-    
-  }
+    console.log(path);
+
+    let options = {
+      html: this.createHtml(),
+      fileName: this.state.meeting.name,
+      directory: '/Download/',
+    };
+
+    console.log('si');
+
+    let file = await RNHTMLtoPDF.convert(options);
+    console.log(file.filePath);
+    // alert(file.filePath);
+
+    // this.savePDFInFirebase();
+  };
+
+  private createHtml = () => {
+    const {meeting, addedTags} = this.state;
+    const htmlReport =
+      '<h1>Meeting: ' +
+      meeting.name +
+      '</h1> <h2>Participants: ' +
+      (meeting.participants.map(participant => {
+        return participant.name;
+      }) +
+        ' ') +
+      '<h2>Subjects: ' +
+      (meeting.subjects.map(subject => {
+        return subject.name + ' ';
+      }) +
+        ' ') +
+      '</h2> <p>--------------------------------------------------------</p>' +
+      addedTags.map(point => {
+        return '<p>' + point.time + ' - ' + point.tag + '</p>';
+      }) +
+      '</ul> <p>--------------------------------------------------------</p>';
+    return htmlReport;
+  };
 }
 
 export default OngoingTags;

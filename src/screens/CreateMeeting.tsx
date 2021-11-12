@@ -1,6 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {Component} from 'react';
-import {ImageBackground, StyleSheet, Text, View} from 'react-native';
+import {
+  ImageBackground,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import DatePicker from 'react-native-date-picker';
 import {Chip, Divider, Input, Overlay} from 'react-native-elements';
 import {Icon} from 'react-native-elements/dist/icons/Icon';
@@ -9,10 +15,12 @@ import RNFetchBlob from 'rn-fetch-blob';
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
 import MeetingDTO from '../interfaces/MeetingDTO';
 import {firebase} from '@react-native-firebase/database';
+import AddTagsModal from '../components/AddTagsModal';
 
 const styles = StyleSheet.create({
   rowView: {
     paddingLeft: 10,
+    paddingBottom: 15,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -28,6 +36,8 @@ interface State {
   participants: Array<any>;
   subjects: Array<any>;
   date: Date;
+  tags: Array<string>;
+  people: Array<string>;
 }
 
 interface Props {
@@ -49,6 +59,8 @@ class CreateMeeting extends Component<Props, State> {
       participants: [],
       subjects: [],
       date: new Date(),
+      tags: [],
+      people: [],
     };
   }
 
@@ -69,136 +81,113 @@ class CreateMeeting extends Component<Props, State> {
               }}>
               Create meeting
             </Text>
-            <View style={styles.rowView}>
-              <Text style={{fontSize: 20}}>Name:</Text>
-              <Input
-                containerStyle={{maxWidth: '80%', paddingTop: 10}}
-                style={{paddingTop: 10}}
-                placeholder="Insert meeting name"
-                onChangeText={name => this.setMeetingName(name)}
-              />
-            </View>
-            <Divider
-              orientation="horizontal"
-              style={{paddingTop: 15, marginBottom: 15}}
-            />
-            <View style={{justifyContent: 'center', flexDirection: 'row'}}>
-              <DatePicker
-                date={this.state.date}
-                onDateChange={() => this.setDate()}
-              />
-            </View>
-            <Divider
-              orientation="horizontal"
-              style={{paddingTop: 15, marginBottom: 15}}
-            />
-
-            <View style={styles.rowView}>
-              <Text style={{fontSize: 20}}>Participants: </Text>
-              <Chip
-                containerStyle={{alignItems: 'baseline'}}
-                title="Add new"
-                iconRight
-                onPress={this.toggleOverlay}
-              />
-            </View>
-            <View style={{flexDirection: 'row'}}>
-              {this.state.participants.map(participant => (
-                <Chip
-                  containerStyle={{alignItems: 'baseline', paddingRight: 10}}
-                  title={participant.name}
-                  icon={
-                    <Icon
-                      size={20}
-                      style={{fontSize: 100, paddingLeft: 5}}
-                      name="close"
-                      type="font-awesome"
-                      color="white"
-                      onPress={() => this.removeParticipant(participant)}
-                    />
-                  }
-                  iconRight
+            <ScrollView>
+              <View style={styles.rowView}>
+                <Text style={{fontSize: 20}}>Name:</Text>
+                <Input
+                  containerStyle={{maxWidth: '80%', paddingTop: 10}}
+                  style={{paddingTop: 10}}
+                  placeholder="Insert meeting name"
+                  onChangeText={name => this.setMeetingName(name)}
                 />
-              ))}
-              <Overlay
-                animationType="slide"
-                isVisible={this.state.visible}
-                onBackdropPress={this.toggleOverlay}>
-                <View style={{height: 200, width: 300, alignItems: 'center'}}>
-                  <Input
-                    placeholder="Insert participant name"
-                    onChangeText={name => this.setParticipant(name)}
-                    leftIcon={
+              </View>
+              <Divider
+                orientation="horizontal"
+                style={{paddingTop: 15, marginBottom: 15}}
+              />
+              <View style={{justifyContent: 'center', flexDirection: 'row'}}>
+                <DatePicker
+                  date={this.state.date}
+                  onDateChange={() => this.setDate()}
+                />
+              </View>
+              <Divider
+                orientation="horizontal"
+                style={{paddingTop: 15, marginBottom: 15}}
+              />
+
+              <View style={styles.rowView}>
+                <Text style={{fontSize: 20}}>Participants: </Text>
+                <Chip
+                  containerStyle={{alignItems: 'baseline'}}
+                  title="Add new"
+                  iconRight
+                  onPress={this.toggleOverlay}
+                />
+              </View>
+              <View style={{flexDirection: 'row'}}>
+                {this.state.participants.map((participant, index) => (
+                  <Chip
+                    key={index}
+                    containerStyle={{alignItems: 'baseline', paddingRight: 10}}
+                    title={participant.name}
+                    icon={
                       <Icon
-                        name="user"
+                        size={20}
+                        style={{fontSize: 100, paddingLeft: 5}}
+                        name="close"
                         type="font-awesome"
-                        size={24}
-                        color="black"
+                        color="white"
+                        onPress={() => this.removeParticipant(participant)}
                       />
                     }
+                    iconRight
                   />
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      width: 300,
-                      justifyContent: 'center',
-                    }}>
-                    <Chip
-                      containerStyle={{width: 80}}
-                      title="CANCEL"
-                      buttonStyle={{
-                        backgroundColor: 'red',
-                      }}
-                      iconRight
-                      onPress={this.toggleOverlay}
-                    />
-                    <Chip
-                      containerStyle={{width: 80}}
-                      title="ADD"
-                      iconRight
-                      onPress={this.addParticipant}
-                    />
-                  </View>
-                </View>
-              </Overlay>
-            </View>
+                ))}
+                <Overlay
+                  animationType="slide"
+                  isVisible={this.state.visible}
+                  onBackdropPress={this.toggleOverlay}>
+                  <AddTagsModal
+                    tagsTitle="Saved names: "
+                    tagsOptions={this.state.people}
+                    finishAdding={this.addParticipants}
+                    cancel={this.toggleOverlay}></AddTagsModal>
+                </Overlay>
+              </View>
 
-            <Divider
-              orientation="horizontal"
-              style={{paddingTop: 15, marginBottom: 15}}
-            />
-            <View style={styles.rowView}>
-              <Text style={{fontSize: 20}}>Subjects: </Text>
-              <Chip
-                containerStyle={{alignItems: 'baseline'}}
-                title="Add new"
-                iconRight
-                onPress={this.toggleSubjectOverlay}
+              <Divider
+                orientation="horizontal"
+                style={{paddingTop: 15, marginBottom: 15}}
               />
-            </View>
-            <View style={{flexDirection: 'row'}}>
-              {this.state.subjects.map(subject => (
+              <View style={styles.rowView}>
+                <Text style={{fontSize: 20}}>Subjects: </Text>
                 <Chip
-                  containerStyle={{alignItems: 'baseline', paddingRight: 10}}
-                  title={subject.name}
-                  icon={
-                    <Icon
-                      size={20}
-                      style={{fontSize: 100, paddingLeft: 5}}
-                      name="close"
-                      type="font-awesome"
-                      color="white"
-                      onPress={() => this.removeSubject(subject)}
-                    />
-                  }
+                  containerStyle={{alignItems: 'baseline'}}
+                  title="Add new"
                   iconRight
+                  onPress={this.toggleSubjectOverlay}
                 />
-              ))}
-              <Overlay
-                animationType="slide"
-                isVisible={this.state.subVisible}
-                onBackdropPress={this.toggleSubjectOverlay}>
-                <View style={{height: 200, width: 300, alignItems: 'center'}}>
+              </View>
+              <View style={{flexDirection: 'row'}}>
+                {this.state.subjects.map((subject, index) => (
+                  <Chip
+                    key={index}
+                    containerStyle={{alignItems: 'baseline', paddingRight: 10}}
+                    title={subject.name}
+                    icon={
+                      <Icon
+                        size={20}
+                        style={{fontSize: 100, paddingLeft: 5}}
+                        name="close"
+                        type="font-awesome"
+                        color="white"
+                        onPress={() => this.removeSubject(subject)}
+                      />
+                    }
+                    iconRight
+                  />
+                ))}
+                <Overlay
+                  animationType="slide"
+                  isVisible={this.state.subVisible}
+                  onBackdropPress={this.toggleSubjectOverlay}>
+                  <AddTagsModal
+                    tagsTitle="Custom tags: "
+                    tagsOptions={this.state.tags}
+                    finishAdding={this.addSubjects}
+                    cancel={this.toggleSubjectOverlay}></AddTagsModal>
+                  {/* <View style={{height: 200, width: 300, alignItems: 'center'}}>
                   <Input
                     placeholder="Insert subject name"
                     onChangeText={name => this.setSubject(name)}
@@ -233,42 +222,58 @@ class CreateMeeting extends Component<Props, State> {
                       onPress={this.addSubject}
                     />
                   </View>
-                </View>
-              </Overlay>
-            </View>
-            <Divider
-              orientation="horizontal"
-              style={{paddingTop: 15, marginBottom: 15}}
-            />
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'flex-end',
-                width: '100%',
-              }}>
-              {/* <Chip
+                </View> */}
+                </Overlay>
+              </View>
+              <Divider
+                orientation="horizontal"
+                style={{paddingTop: 15, marginBottom: 15}}
+              />
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'flex-end',
+                  width: '100%',
+                }}>
+                {/* <Chip
                 containerStyle={{alignItems: 'baseline'}}
                 title="Create PDF"
                 onPress={this.createPDF}
               /> */}
-                            <Chip
-                containerStyle={{alignItems: 'baseline'}}
-                title="Cancel"
-                buttonStyle={{backgroundColor: '#AE2012'}}
-                onPress={this.return}
-              />
-              <Chip
-                containerStyle={{alignItems: 'baseline', paddingLeft: 15}}
-                title="Create Meeting"
-                buttonStyle={{backgroundColor: "#0A9396"}}
-                onPress={this.createMeeting}
-              />
-            </View>
+                <Chip
+                  containerStyle={{alignItems: 'baseline'}}
+                  title="Cancel"
+                  buttonStyle={{backgroundColor: '#AE2012'}}
+                  onPress={this.return}
+                />
+                <Chip
+                  containerStyle={{alignItems: 'baseline', paddingLeft: 15}}
+                  title="Create Meeting"
+                  buttonStyle={{backgroundColor: '#0A9396'}}
+                  onPress={this.createMeeting}
+                />
+              </View>
+            </ScrollView>
           </View>
         </ImageBackground>
       </SafeAreaProvider>
     );
   }
+
+  getData = async () => {
+    const result = await AsyncStorage.getItem('customTags');
+    const people = await AsyncStorage.getItem('people');
+
+    console.log(result, people);
+
+    if (result) {
+      this.setState({tags: JSON.parse(result)});
+    }
+
+    if (people) {
+      this.setState({people: JSON.parse(people)});
+    }
+  };
 
   clearData = () => {
     this.setState({
@@ -285,6 +290,7 @@ class CreateMeeting extends Component<Props, State> {
   componentDidMount() {
     const {navigation} = this.props;
     unsubscribe = navigation.addListener('focus', () => {
+      this.getData();
       this.clearData();
     });
   }
@@ -367,6 +373,8 @@ class CreateMeeting extends Component<Props, State> {
 
     firebase.database().ref('/meetings').push(meeting);
 
+    this.createPDF();
+
     this.props.navigation.goBack();
   };
 
@@ -381,8 +389,6 @@ class CreateMeeting extends Component<Props, State> {
       fileName: 'Meeting: ' + this.state.name,
       directory: RNFetchBlob.fs.dirs.DownloadDir,
     };
-
-    console.log('si');
 
     let file = await RNHTMLtoPDF.convert(options);
     console.log(file.filePath);
@@ -422,7 +428,17 @@ class CreateMeeting extends Component<Props, State> {
 
   private return = () => {
     this.props.navigation.goBack();
-  }
+  };
+
+  addParticipants = (data: Array<any>) => {
+    this.setState({participants: data});
+    this.toggleOverlay();
+  };
+
+  addSubjects = (data: Array<any>) => {
+    this.setState({subjects: data});
+    this.toggleSubjectOverlay();
+  };
 }
 
 export default CreateMeeting;

@@ -1,7 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {firebase} from '@react-native-firebase/database';
 import React, {Component} from 'react';
-import {ImageBackground, ScrollView, TextInput, View} from 'react-native';
+import {
+  ImageBackground,
+  PermissionsAndroid,
+  Platform,
+  ScrollView,
+  TextInput,
+  View,
+} from 'react-native';
 import {Card, Icon, Text} from 'react-native-elements';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import MeetingDTO from '../interfaces/MeetingDTO';
@@ -29,8 +36,36 @@ class MeetingsList extends Component<Props, State> {
       meetings: meetings,
     };
 
-    // this.getData();
+    this.getPermissions();
   }
+
+  getPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const grants = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+
+        if (
+          grants['android.permission.WRITE_EXTERNAL_STORAGE'] ===
+            PermissionsAndroid.RESULTS.GRANTED &&
+          grants['android.permission.READ_EXTERNAL_STORAGE'] ===
+            PermissionsAndroid.RESULTS.GRANTED &&
+          grants['android.permission.RECORD_AUDIO'] ===
+            PermissionsAndroid.RESULTS.GRANTED
+        ) {
+        } else {
+          console.log('All required permissions not granted');
+          return;
+        }
+      } catch (err) {
+        console.warn(err);
+        return;
+      }
+    }
+  };
 
   componentDidMount() {
     const {navigation} = this.props;
@@ -62,8 +97,9 @@ class MeetingsList extends Component<Props, State> {
               Meetings
             </Text>
             <ScrollView>
-              {this.state.meetings.map(meeting => (
+              {this.state.meetings.map((meeting, index) => (
                 <Card
+                  key={index}
                   containerStyle={{
                     borderRadius: 4,
                     borderWidth: 0,
@@ -160,7 +196,6 @@ class MeetingsList extends Component<Props, State> {
   };
 
   createMeeting = () => {
-    console.log('he');
     this.props.navigation.navigate('CreateMeeting');
   };
 }
