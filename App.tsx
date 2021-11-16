@@ -3,6 +3,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import * as React from 'react';
 import {Icon} from 'react-native-elements';
+import Archive from './src/screens/Archive';
 import CreateMeeting from './src/screens/CreateMeeting';
 import CustomTags from './src/screens/CustomTags';
 import MeetingsList from './src/screens/MeetingsList';
@@ -61,6 +62,21 @@ export default function App() {
             },
           }}>
           {props => <CustomTags {...props} extraData={'hi'} />}
+        </Tab.Screen>
+        <Tab.Screen
+          name="Archive"
+          options={{
+            tabBarIcon: ({focused}) => {
+              return (
+                <Icon
+                  name="archive"
+                  type="font-awesome"
+                  color={focused ? '#005F73' : 'gray'}
+                />
+              );
+            },
+          }}>
+          {props => <Archive {...props} />}
         </Tab.Screen>
         <Tab.Screen name="CreateMeeting" options={{tabBarButton: () => null}}>
           {props => <CreateMeeting {...props} />}

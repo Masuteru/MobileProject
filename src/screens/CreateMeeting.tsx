@@ -354,10 +354,8 @@ class CreateMeeting extends Component<Props, State> {
       name: this.state.name,
       participants: this.state.participants,
       subjects: this.state.subjects,
-      date:
-        this.state.date.toLocaleDateString() +
-        ' ' +
-        this.state.date.toLocaleTimeString(),
+      date: this.state.date.toLocaleDateString(),
+      time: this.state.date.toLocaleTimeString(),
     };
 
     let result = await AsyncStorage.getItem('meetings');

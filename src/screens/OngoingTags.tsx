@@ -48,7 +48,7 @@ interface Props {
   navigation: any;
 }
 
-interface AddedTag {
+export interface AddedTag {
   time: string;
   tag: string;
 }
@@ -147,6 +147,8 @@ class OngoingTags extends Component<any, State> {
         participants: [],
         subjects: [],
         date: '',
+        time: '',
+        isRecording: false,
       },
       addedTags: tags,
       customTags: customTags,
@@ -609,7 +611,7 @@ class OngoingTags extends Component<any, State> {
 
     let dirs = RNFetchBlob.fs.dirs;
     const id = uuid.v4();
-    const path = dirs.DownloadDir + '/' + this.state.meeting.name + '.mp4';
+    const path = dirs.DownloadDir + '/' + this.state.meeting.name + '.mp3';
 
     this.audioData.fileId = id.toString();
 
@@ -701,8 +703,41 @@ class OngoingTags extends Component<any, State> {
       [{text: 'Ok', onPress: () => this.props.navigation.navigate('Meetings')}],
     );
 
-    // this.saveAudioInFirebase();
+    let finishedMeeting = {
+      meeting: this.state.meeting,
+      addedTags: this.state.addedTags,
+    };
+
+    let archivied = await AsyncStorage.getItem('archive');
+
+    if (archivied) {
+      let parsedArchive = JSON.parse(archivied);
+      parsedArchive.push(finishedMeeting);
+      await AsyncStorage.setItem('archive', JSON.stringify(parsedArchive));
+    } else {
+      let newArchive = [];
+      newArchive.push(finishedMeeting);
+      await AsyncStorage.setItem('archive', JSON.stringify(newArchive));
+    }
+    
+    this.removeMeeting();
   };
+
+  removeMeeting = async() => {
+    const selectedMeeting = await AsyncStorage.getItem('selectedMeeting');
+    const meetings = await AsyncStorage.getItem('meetings');
+
+    if (selectedMeeting && meetings) {
+
+      const newList = JSON.parse(meetings);
+      const newItem = JSON.parse(selectedMeeting);
+
+      newList.splice(newList.indexOf(newItem), 1);
+
+      await AsyncStorage.setItem('meetings', JSON.stringify(newList));
+
+    }
+  }
 
   private saveAudioInFirebase = async () => {
     let dirs = RNFetchBlob.fs.dirs;

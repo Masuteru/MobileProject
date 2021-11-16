@@ -13,9 +13,10 @@ import {
 import {Card, Icon, Text} from 'react-native-elements';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import MeetingDTO from '../interfaces/MeetingDTO';
+import {AddedTag} from './OngoingTags';
 
 interface State {
-  meetings: MeetingDTO[];
+  meetings: [{addedTags: AddedTag[]; meeting: MeetingDTO}];
   isRecording: boolean;
 }
 
@@ -23,7 +24,7 @@ interface Props {
   navigation: any;
 }
 
-let meetings: MeetingDTO[] = [];
+let meetings: any = [];
 
 let textInput: TextInput | null;
 
@@ -50,7 +51,7 @@ const styles = StyleSheet.create({
   },
 });
 
-class MeetingsList extends Component<Props, State> {
+class Archive extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     console.log(props);
@@ -118,18 +119,13 @@ class MeetingsList extends Component<Props, State> {
                 paddingBottom: 15,
                 fontWeight: 'bold',
               }}>
-              Meetings
+              Archive
             </Text>
             <ScrollView>
               {this.state.meetings.map((meeting, index) => (
                 <Card
                   key={index}
-                  containerStyle={[
-                    meeting.isRecording
-                      ? styles.recording
-                      : styles.notRecording,
-                    [styles.card],
-                  ]}>
+                  containerStyle={[styles.notRecording, styles.card]}>
                   <View
                     style={{
                       flexDirection: 'row',
@@ -138,26 +134,20 @@ class MeetingsList extends Component<Props, State> {
                       height: 60,
                     }}>
                     <View style={{flexDirection: 'row', flex: 1, alignItems: 'center'}}>
-                      <View style={{alignItems: 'center', paddingRight: 20}}>
-                        <Text style={{fontWeight: 'bold'}}>{meeting.date}</Text>
-                        <Text style={{fontWeight: 'bold'}}>{meeting.time}</Text>
+                      <View style={{alignItems: 'center', justifyContent: 'space-evenly', paddingRight: 20}}>
+                        <Text style={{fontWeight: 'bold'}}>{meeting.meeting.date}</Text>
+                        <Text style={{fontWeight: 'bold'}}>{meeting.meeting.time}</Text>
                       </View>
-                      <Text style={{fontWeight: 'bold'}}>{meeting.name}</Text>
+                      <Text style={{fontWeight: 'bold'}}>
+                        {meeting.meeting.name}
+                      </Text>
                     </View>
                     <View
                       style={{
                         flexDirection: 'row',
                       }}>
                       <Icon
-                        name="microphone"
-                        type="font-awesome"
-                        color="#BB3E03"
-                        size={30}
-                        onPress={() => this.meet(meeting, index)}
-                      />
-
-                      <Icon
-                        name="edit"
+                        name="clipboard"
                         type="font-awesome"
                         color="#005F73"
                         size={30}
@@ -169,17 +159,6 @@ class MeetingsList extends Component<Props, State> {
               ))}
               <View style={{height: 90}}></View>
             </ScrollView>
-            <View style={{position: 'absolute', bottom: 15, right: 15}}>
-              <Icon
-                raised
-                name="plus"
-                size={30}
-                type="font-awesome"
-                reverse={true}
-                color="#0A9396"
-                onPress={() => this.createMeeting()}
-              />
-            </View>
           </View>
         </ImageBackground>
       </SafeAreaProvider>
@@ -187,7 +166,7 @@ class MeetingsList extends Component<Props, State> {
   }
 
   getData = async () => {
-    const result = await AsyncStorage.getItem('meetings');
+    const result = await AsyncStorage.getItem('archive');
     // firebase
     //   .database()
     //   .ref('/meetings')
@@ -209,25 +188,27 @@ class MeetingsList extends Component<Props, State> {
     } else {
       this.setState({meetings: meetings});
     }
+
+    console.log(this.state.meetings);
   };
 
-  meet = async (meeting: MeetingDTO, index: number) => {
-    await AsyncStorage.setItem('selectedMeeting', JSON.stringify(meeting));
+  // meet = async (meeting: MeetingDTO, index: number) => {
+  //   await AsyncStorage.setItem('selectedMeeting', JSON.stringify(meeting));
 
-    let meetings = this.state.meetings;
+  //   let meetings = this.state.meetings;
 
-    meetings[index].isRecording = true;
+  //   meetings[index].isRecording = true;
 
-    this.setState({meetings: meetings, isRecording: true});
+  //   this.setState({meetings: meetings, isRecording: true});
 
-    await AsyncStorage.setItem('meetings', JSON.stringify(meetings));
+  //   await AsyncStorage.setItem('meetings', JSON.stringify(meetings));
 
-    this.props.navigation.navigate('OngoingTags');
-  };
+  //   this.props.navigation.navigate('OngoingTags');
+  // };
 
   createMeeting = () => {
     this.props.navigation.navigate('CreateMeeting');
   };
 }
 
-export default MeetingsList;
+export default Archive;
