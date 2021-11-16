@@ -133,10 +133,24 @@ class Archive extends Component<Props, State> {
                       alignItems: 'center',
                       height: 60,
                     }}>
-                    <View style={{flexDirection: 'row', flex: 1, alignItems: 'center'}}>
-                      <View style={{alignItems: 'center', justifyContent: 'space-evenly', paddingRight: 20}}>
-                        <Text style={{fontWeight: 'bold'}}>{meeting.meeting.date}</Text>
-                        <Text style={{fontWeight: 'bold'}}>{meeting.meeting.time}</Text>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        flex: 1,
+                        alignItems: 'center',
+                      }}>
+                      <View
+                        style={{
+                          alignItems: 'center',
+                          justifyContent: 'space-evenly',
+                          paddingRight: 20,
+                        }}>
+                        <Text style={{fontWeight: 'bold'}}>
+                          {meeting.meeting.date}
+                        </Text>
+                        <Text style={{fontWeight: 'bold'}}>
+                          {meeting.meeting.time}
+                        </Text>
                       </View>
                       <Text style={{fontWeight: 'bold'}}>
                         {meeting.meeting.name}

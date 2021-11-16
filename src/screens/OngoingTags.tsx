@@ -719,25 +719,23 @@ class OngoingTags extends Component<any, State> {
       newArchive.push(finishedMeeting);
       await AsyncStorage.setItem('archive', JSON.stringify(newArchive));
     }
-    
+
     this.removeMeeting();
   };
 
-  removeMeeting = async() => {
+  removeMeeting = async () => {
     const selectedMeeting = await AsyncStorage.getItem('selectedMeeting');
     const meetings = await AsyncStorage.getItem('meetings');
 
     if (selectedMeeting && meetings) {
-
       const newList = JSON.parse(meetings);
       const newItem = JSON.parse(selectedMeeting);
 
       newList.splice(newList.indexOf(newItem), 1);
 
       await AsyncStorage.setItem('meetings', JSON.stringify(newList));
-
     }
-  }
+  };
 
   private saveAudioInFirebase = async () => {
     let dirs = RNFetchBlob.fs.dirs;

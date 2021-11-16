@@ -137,7 +137,12 @@ class MeetingsList extends Component<Props, State> {
                       alignItems: 'center',
                       height: 60,
                     }}>
-                    <View style={{flexDirection: 'row', flex: 1, alignItems: 'center'}}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        flex: 1,
+                        alignItems: 'center',
+                      }}>
                       <View style={{alignItems: 'center', paddingRight: 20}}>
                         <Text style={{fontWeight: 'bold'}}>{meeting.date}</Text>
                         <Text style={{fontWeight: 'bold'}}>{meeting.time}</Text>
