@@ -4,6 +4,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import * as React from 'react';
 import {Icon} from 'react-native-elements';
 import Archive from './src/screens/Archive';
+import ArchivedMeeting from './src/screens/ArchivedMeeting';
 import CreateMeeting from './src/screens/CreateMeeting';
 import CustomTags from './src/screens/CustomTags';
 import MeetingsList from './src/screens/MeetingsList';
@@ -80,6 +81,9 @@ export default function App() {
         </Tab.Screen>
         <Tab.Screen name="CreateMeeting" options={{tabBarButton: () => null}}>
           {props => <CreateMeeting {...props} />}
+        </Tab.Screen>
+        <Tab.Screen name="ArchivedMeeting" options={{tabBarButton: () => null}}>
+          {props => <ArchivedMeeting {...props} />}
         </Tab.Screen>
       </Tab.Navigator>
     </NavigationContainer>

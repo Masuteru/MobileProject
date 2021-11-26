@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import DatePicker from 'react-native-date-picker';
@@ -49,6 +50,8 @@ var subjectName = '';
 
 let unsubscribe: any;
 
+let textInput: TextInput | null;
+
 class CreateMeeting extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -85,6 +88,9 @@ class CreateMeeting extends Component<Props, State> {
               <View style={styles.rowView}>
                 <Text style={{fontSize: 20}}>Name:</Text>
                 <Input
+                  ref={input => {
+                    textInput = input;
+                  }}
                   containerStyle={{maxWidth: '80%', paddingTop: 10}}
                   style={{paddingTop: 10}}
                   placeholder="Insert meeting name"
@@ -284,7 +290,7 @@ class CreateMeeting extends Component<Props, State> {
       subjects: [],
       date: new Date(),
     });
-    this.setSubject('');
+    textInput ? textInput.clear() : null;
   };
 
   componentDidMount() {

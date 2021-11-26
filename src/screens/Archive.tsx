@@ -166,6 +166,7 @@ class Archive extends Component<Props, State> {
                         color="#005F73"
                         size={30}
                         containerStyle={{paddingLeft: 20}}
+                        onPress={() => this.reviewMeeting(meeting)}
                       />
                     </View>
                   </View>
@@ -223,6 +224,12 @@ class Archive extends Component<Props, State> {
   createMeeting = () => {
     this.props.navigation.navigate('CreateMeeting');
   };
+
+  reviewMeeting = async (meeting: any) => {
+    console.log(meeting)
+    await AsyncStorage.setItem('selectedArchive', JSON.stringify(meeting));
+    this.props.navigation.navigate('ArchivedMeeting');
+  }
 }
 
 export default Archive;
