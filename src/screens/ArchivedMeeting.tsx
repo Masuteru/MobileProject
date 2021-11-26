@@ -45,6 +45,7 @@ interface State {
   addedTags: AddedTag[];
   playTime: string;
   duration: string;
+  started: boolean;
 }
 
 interface Props {
@@ -161,6 +162,7 @@ class ArchivedMeeting extends Component<any, State> {
       isRecording: false,
       startTime: '00:00:00',
       duration: '',
+      started: false,
     };
 
     this.audioRecorderPlayer = new AudioRecorderPlayer();
@@ -304,10 +306,11 @@ class ArchivedMeeting extends Component<any, State> {
             </View>
             <View style={{width: '90%'}}>
               <Slider
+              
                 value={this.state.currentPositionSec}
                 maximumValue={this.state.currentDurationSec}
                 onValueChange={value => {
-                  this.audioRecorderPlayer.seekToPlayer(value);
+                  this.seekAudio(value);
                 }}
                 thumbTintColor='#005F73'
                 thumbStyle={{ height: 30, width: 30}}
@@ -339,7 +342,7 @@ class ArchivedMeeting extends Component<any, State> {
                   }}>
                   <Switch
                     value={this.state.isRecording}
-                    onChange={() => this.onStartPlay()}
+                    onChange={() => this.setPlayState()}
                     style={{transform: [{scaleX: 1.7}, {scaleY: 1.7}]}}
                     color="#005F73"
                   />
@@ -458,6 +461,7 @@ class ArchivedMeeting extends Component<any, State> {
         console.log('state', this.state);
       }
     } catch (e) {}
+    this.audioRecorderPlayer = new AudioRecorderPlayer();
   };
 
   componentDidMount() {
@@ -466,7 +470,34 @@ class ArchivedMeeting extends Component<any, State> {
     unsubscribe = navigation.addListener('focus', () => {
       //call your function that update component
       console.log('what');
+      this.clearData();
       this.getData();
+    });
+  }
+
+  clearData() {
+    this.setState({
+      recordSecs: 0,
+      recordTime: '00:00:00',
+      currentPositionSec: 0,
+      currentDurationSec: 0,
+      meeting: {
+        name: '',
+        participants: [],
+        subjects: [],
+        date: '',
+        time: '',
+        isRecording: false,
+      },
+      addedTags: tags,
+      customTags: customTags,
+
+      playTime: '',
+
+      isRecording: false,
+      startTime: '00:00:00',
+      duration: '',
+      started: false,
     });
   }
 
@@ -625,13 +656,6 @@ class ArchivedMeeting extends Component<any, State> {
     this.setState({startTime: this.state.recordTime, isRecording: true});
   };
 
-  private onStopRecord = async () => {
-    const result = await this.audioRecorderPlayer.stopRecorder();
-    console.log('result', result);
-    this.saveAudioInFirebase();
-    this.audioRecorderPlayer.removeRecordBackListener();
-  };
-
   setRecordingState() {
     if (this.state.recordSecs > 0) {
       if (this.state.isRecording) {
@@ -643,80 +667,6 @@ class ArchivedMeeting extends Component<any, State> {
       this.onStartRecord();
     }
   }
-
-  confirmFinishMeeting() {
-    Alert.alert('Are you sure you want to finish the meeting?', undefined, [
-      {
-        text: 'No',
-      },
-      {text: 'Yes', onPress: () => this.finishMeeting()},
-    ]);
-  }
-
-  finishMeeting = async () => {
-    const result = await this.audioRecorderPlayer.stopRecorder();
-    this.audioRecorderPlayer.removeRecordBackListener();
-    console.log('result', result);
-    await this.createPDF();
-
-    Alert.alert(
-      'Meeting finished, audio and document saved in storage',
-      undefined,
-      [{text: 'Ok', onPress: () => this.props.navigation.navigate('Meetings')}],
-    );
-
-    let finishedMeeting = {
-      meeting: this.state.meeting,
-      addedTags: this.state.addedTags,
-    };
-
-    let archivied = await AsyncStorage.getItem('archive');
-
-    if (archivied) {
-      let parsedArchive = JSON.parse(archivied);
-      parsedArchive.push(finishedMeeting);
-      await AsyncStorage.setItem('archive', JSON.stringify(parsedArchive));
-    } else {
-      let newArchive = [];
-      newArchive.push(finishedMeeting);
-      await AsyncStorage.setItem('archive', JSON.stringify(newArchive));
-    }
-
-    this.removeMeeting();
-  };
-
-  removeMeeting = async () => {
-    const selectedMeeting = await AsyncStorage.getItem('selectedMeeting');
-    const meetings = await AsyncStorage.getItem('meetings');
-
-    if (selectedMeeting && meetings) {
-      const newList = JSON.parse(meetings);
-      const newItem = JSON.parse(selectedMeeting);
-
-      newList.splice(newList.indexOf(newItem), 1);
-
-      await AsyncStorage.setItem('meetings', JSON.stringify(newList));
-    }
-  };
-
-  private saveAudioInFirebase = async () => {
-    let dirs = RNFetchBlob.fs.dirs;
-    const path = dirs.DownloadDir + '/' + this.state.meeting.name + '.mp4';
-
-    const newReference = firebase.database().ref('/audioData').push();
-
-    var fbstorage = storage();
-
-    fbstorage
-      .ref(this.state.meeting.name + 'audio')
-      .putFile(path)
-      .then(result => {
-        console.log('foi!', result);
-      })
-      .catch(error => {
-        console.log('erro', error);
-      });
-  };
 
   private createPDF = async () => {
     let dirs = RNFetchBlob.fs.dirs;
@@ -773,6 +723,8 @@ class ArchivedMeeting extends Component<any, State> {
     const volume = await this.audioRecorderPlayer.setVolume(1.0);
     console.log(`file: ${msg}`, `volume: ${volume}`);
 
+    this.setState({isRecording: true, started: true});
+
     this.audioRecorderPlayer.addPlayBackListener((e: PlayBackType) => {
       this.setState({
         currentPositionSec: e.currentPosition,
@@ -786,12 +738,33 @@ class ArchivedMeeting extends Component<any, State> {
   };
 
   private onPausePlay = async () => {
+    this.setState({isRecording: false});
     await this.audioRecorderPlayer.pausePlayer();
   };
 
   private onResumePlay = async () => {
+    this.setState({isRecording: true});
     await this.audioRecorderPlayer.resumePlayer();
   };
+
+  setPlayState() {
+    console.log(this.state.started)
+    if (this.state.started) {
+      if (this.state.isRecording) {
+        this.onPausePlay();
+      } else {
+        this.onResumePlay();
+      }
+    } else {
+      this.onStartPlay();
+    }
+  }
+
+  private seekAudio(value: number) {
+    let convertedValue = Math.floor(this.state.currentDurationSec / value)
+    console.log(convertedValue)
+    this.audioRecorderPlayer.seekToPlayer(convertedValue)
+  }
 }
 
 export default ArchivedMeeting;

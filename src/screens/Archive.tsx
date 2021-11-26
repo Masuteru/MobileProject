@@ -227,6 +227,7 @@ class Archive extends Component<Props, State> {
 
   reviewMeeting = async (meeting: any) => {
     console.log(meeting)
+    await AsyncStorage.removeItem('selectedArchive');
     await AsyncStorage.setItem('selectedArchive', JSON.stringify(meeting));
     this.props.navigation.navigate('ArchivedMeeting');
   }

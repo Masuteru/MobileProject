@@ -13,6 +13,7 @@ import {
   Platform,
   ScrollView,
   Text,
+  TouchableOpacityBase,
   View,
 } from 'react-native';
 import AudioRecorderPlayer, {
@@ -494,8 +495,9 @@ class OngoingTags extends Component<any, State> {
       }
       console.log('4');
 
-      console.log(this.state);
     } catch (e) {}
+
+    this.audioRecorderPlayer = new AudioRecorderPlayer();
   };
 
   componentDidMount() {
@@ -505,6 +507,7 @@ class OngoingTags extends Component<any, State> {
       //call your function that update component
       console.log('what');
       this.getData();
+      this.audioRecorderPlayer
     });
   }
 
@@ -621,6 +624,8 @@ class OngoingTags extends Component<any, State> {
         console.log('erro', error);
       });
 
+      console.log('ue')
+
     this.audioRecorderPlayer.addRecordBackListener((e: RecordBackType) => {
       this.setState({
         // this.recordSecs = e.currentPosition;
@@ -671,13 +676,20 @@ class OngoingTags extends Component<any, State> {
   };
 
   setRecordingState() {
+
+    console.log('state', this.state.isRecording)
+
+
     if (this.state.recordSecs > 0) {
       if (this.state.isRecording) {
+        console.log('pause')
         this.onPauseRecord();
       } else {
+        console.log('resume')
         this.onResumeRecord();
       }
     } else {
+      console.log('gsdlkjh')
       this.onStartRecord();
     }
   }
@@ -735,7 +747,34 @@ class OngoingTags extends Component<any, State> {
 
       await AsyncStorage.setItem('meetings', JSON.stringify(newList));
     }
+
+    await AsyncStorage.removeItem('selectedMeeting');
+
+    this.cleanAndExit();
   };
+
+  cleanAndExit() {
+    this.setState({
+      recordSecs: 0,
+      recordTime: '00:00:00',
+      currentPositionSec: 0,
+      currentDurationSec: 0,
+      meeting: {
+        name: '',
+        participants: [],
+        subjects: [],
+        date: '',
+        time: '',
+        isRecording: false,
+      },
+      addedTags: tags,
+      customTags: customTags,
+
+      isRecording: false,
+      startTime: '00:00:00',
+    });
+    this.props.navigation.navigate('Meetings');
+  }
 
   private saveAudioInFirebase = async () => {
     let dirs = RNFetchBlob.fs.dirs;
@@ -770,6 +809,8 @@ class OngoingTags extends Component<any, State> {
 
     console.log('si');
 
+    // RNFetchBlob.fs.createFile(path + 'asd.txt', this.createHtml(), 'base64');
+
     let file = await RNHTMLtoPDF.convert(options);
     console.log(file.filePath);
     // alert(file.filePath);
@@ -782,7 +823,7 @@ class OngoingTags extends Component<any, State> {
     const htmlReport =
       '<h1>Meeting: ' +
       meeting.name +
-      '</h1> <h2>Participants: ' +
+      '</h1> \n <h2>Participants: \n' +
       (meeting.participants.map(participant => {
         return participant.name;
       }) +
